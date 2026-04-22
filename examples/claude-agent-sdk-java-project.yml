@@ -1,0 +1,13 @@
+# claude-agent-sdk-java project configuration
+# Place this file at .github/project.yml in the claude-agent-sdk-java repository
+
+name: claude-agent-sdk-java
+
+release:
+  current-version: "1.0.0-SNAPSHOT"
+  next-version: "1.1.0-SNAPSHOT"
+
+integration:
+  uses-reusable-workflows: true
+  pr-based-releases: false
+  java-version: "21"

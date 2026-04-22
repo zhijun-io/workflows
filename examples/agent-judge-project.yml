@@ -1,0 +1,13 @@
+# agent-judge project configuration
+# Place this file at .github/project.yml in the agent-judge repository
+
+name: agent-judge
+
+release:
+  current-version: "0.1.0-SNAPSHOT"
+  next-version: "0.2.0-SNAPSHOT"
+
+integration:
+  uses-reusable-workflows: true
+  pr-based-releases: false
+  java-version: "21"
