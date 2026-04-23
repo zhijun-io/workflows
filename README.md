@@ -37,7 +37,7 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci-build.yml@main
+    uses: zhijun-io/workflows/.github/workflows/ci.yml@main
 ```
 
 2. **Add snapshot publishing** (`.github/workflows/publish-snapshot.yml`):
@@ -67,7 +67,7 @@ on:
 
 jobs:
   release:
-    uses: zhijun-io/workflows/.github/workflows/maven-central-release.yml@main
+    uses: zhijun-io/workflows/.github/workflows/release.yml@main
     with:
       version: ${{ inputs.version }}
     secrets:
@@ -92,7 +92,7 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci-build-with-cli.yml@main
+    uses: zhijun-io/workflows/.github/workflows/ci-with-cli.yml@main
     with:
       install-claude-cli: true
       install-gemini-cli: true
@@ -136,7 +136,7 @@ on:
 
 jobs:
   release:
-    uses: zhijun-io/workflows/.github/workflows/maven-central-release-with-cli.yml@main
+    uses: zhijun-io/workflows/.github/workflows/release-with-cli.yml@main
     with:
       version: ${{ inputs.version }}
       install-claude-cli: true

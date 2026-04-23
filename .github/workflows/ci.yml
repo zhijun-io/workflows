@@ -3,11 +3,11 @@
 # Usage in calling repository:
 # jobs:
 #   build:
-#     uses: zhijun-io/workflows/.github/workflows/ci-build.yml@main
+#     uses: zhijun-io/workflows/.github/workflows/ci.yml@main
 #     with:
 #       java-version: '21'
 
-name: CI Build
+name: CI
 
 on:
   workflow_call:

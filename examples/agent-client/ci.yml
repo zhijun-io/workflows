@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build:
     if: github.repository_owner == 'zhijun-io'
-    uses: zhijun-io/workflows/.github/workflows/ci-build-with-cli.yml@main
+    uses: zhijun-io/workflows/.github/workflows/ci-with-cli.yml@main
     with:
       java-version: '21'
       install-claude-cli: true

@@ -19,7 +19,7 @@ on:
 jobs:
   release:
     if: github.repository_owner == 'zhijun-io'
-    uses: zhijun-io/workflows/.github/workflows/maven-central-release-with-cli.yml@main
+    uses: zhijun-io/workflows/.github/workflows/release-with-cli.yml@main
     with:
       version: ${{ inputs.version }}
       java-version: '21'

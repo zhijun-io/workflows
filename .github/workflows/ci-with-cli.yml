@@ -1,6 +1,6 @@
 # Reusable CI Build Workflow with CLI Tool Support
 #
-# Extended version of ci-build.yml that supports:
+# Extended version of ci.yml that supports:
 # - CLI tool installations (Claude, Gemini, Vendir)
 # - API keys for integration tests (repo-specific secrets)
 # - Commit validation for AI attribution
@@ -8,7 +8,7 @@
 # Usage in calling repository:
 # jobs:
 #   build:
-#     uses: zhijun-io/workflows/.github/workflows/ci-build-with-cli.yml@main
+#     uses: zhijun-io/workflows/.github/workflows/ci-with-cli.yml@main
 #     with:
 #       install-claude-cli: true
 #       install-gemini-cli: true
@@ -16,7 +16,7 @@
 #       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 #       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-name: CI Build with CLI Tools
+name: CI with CLI Tools
 
 on:
   workflow_call:

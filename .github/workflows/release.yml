@@ -9,7 +9,7 @@
 # Usage in calling repository:
 # jobs:
 #   release:
-#     uses: zhijun-io/workflows/.github/workflows/maven-central-release.yml@main
+#     uses: zhijun-io/workflows/.github/workflows/release.yml@main
 #     with:
 #       version: '0.1.0'
 #     secrets:

@@ -1,13 +1,13 @@
 # Reusable Maven Central Release Workflow with CLI Tool Support
 #
-# Extended version of maven-central-release.yml that supports:
+# Extended version of release.yml that supports:
 # - CLI tool installations for integration tests before release
 # - API keys for tests (repo-specific)
 #
 # Usage in calling repository:
 # jobs:
 #   release:
-#     uses: zhijun-io/workflows/.github/workflows/maven-central-release-with-cli.yml@main
+#     uses: zhijun-io/workflows/.github/workflows/release-with-cli.yml@main
 #     with:
 #       version: ${{ inputs.version }}
 #       install-claude-cli: true

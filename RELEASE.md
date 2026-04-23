@@ -38,7 +38,7 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci-build.yml@main
+    uses: zhijun-io/workflows/.github/workflows/ci.yml@main
     with:
       java-version: '21'
 ```
@@ -98,7 +98,7 @@ on:
 
 jobs:
   release:
-    uses: zhijun-io/workflows/.github/workflows/maven-central-release.yml@main
+    uses: zhijun-io/workflows/.github/workflows/release.yml@main
     with:
       version: ${{ inputs.version }}
     secrets:
@@ -198,7 +198,7 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci-build.yml@main
+    uses: zhijun-io/workflows/.github/workflows/ci.yml@main
 ```
 
 2. Ensure your repository has the required secrets configured
