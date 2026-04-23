@@ -86,7 +86,7 @@ jobs:
           gpg-passphrase: GPG_PASSPHRASE
 
       - name: Set version
-        run: ./mvnw versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+        run: ./mvnw -ntp versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
 
       - name: Verify no SNAPSHOT dependencies
         run: |
@@ -99,13 +99,13 @@ jobs:
       - name: Build and verify
         run: |
           if [ "${{ inputs.skip-tests }}" = "true" ]; then
-            ./mvnw clean verify -B -DskipTests
+            ./mvnw clean verify -B -ntp -DskipTests
           else
-            ./mvnw clean verify -B
+            ./mvnw clean verify -B -ntp
           fi
 
       - name: Publish release to Maven Central
-        run: ./mvnw deploy -B -DskipTests -Prelease
+        run: ./mvnw deploy -B -ntp -DskipTests -Prelease
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -136,7 +136,7 @@ jobs:
           IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
           NEXT_VERSION="${major}.$((minor + 1)).0-SNAPSHOT"
           echo "Bumping to next development version: ${NEXT_VERSION}"
-          ./mvnw versions:set -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
+          ./mvnw -ntp versions:set -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
           git add -A
           git commit -m "Bump development version to ${NEXT_VERSION}"
           git push origin HEAD:main

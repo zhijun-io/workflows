@@ -62,13 +62,13 @@ jobs:
         if: ${{ inputs.verify-first }}
         run: |
           if [ "${{ inputs.skip-tests }}" = "true" ]; then
-            ./mvnw clean verify -B -DskipTests
+            ./mvnw clean verify -B -ntp -DskipTests
           else
-            ./mvnw clean verify -B
+            ./mvnw clean verify -B -ntp
           fi
 
       - name: Publish snapshot to Maven Central
-        run: ./mvnw deploy -B -DskipTests
+        run: ./mvnw deploy -B -ntp -DskipTests
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
