@@ -1,7 +1,7 @@
 # CI workflow for agent-client
 # Place this file at .github/workflows/ci.yml in the agent-client repository
 
-name: CI Build
+name: CI
 
 on:
   schedule:
