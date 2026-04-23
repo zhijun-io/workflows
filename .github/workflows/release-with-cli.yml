@@ -225,7 +225,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag-prefix }}${{ inputs.version }}
-          name: Release ${{ inputs.version }}
+          name: ${{ inputs.tag-prefix }}${{ inputs.version }}
           draft: false
           prerelease: ${{ contains(inputs.version, '-') }}
           generate_release_notes: true
