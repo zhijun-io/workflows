@@ -154,10 +154,10 @@ jobs:
 
 ```bash
 # Dry run
-python3 zhijun-io-release.py agent-sandbox 0.1.0 --dry-run
+python3 zhijun-io-release.py agent-sandbox 0.0.1 --dry-run
 
 # Actual release
-python3 zhijun-io-release.py agent-sandbox 0.1.0
+python3 zhijun-io-release.py agent-sandbox 0.0.1
 ```
 
 ## Setting Up Secrets

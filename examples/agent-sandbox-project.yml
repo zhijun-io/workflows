@@ -4,7 +4,7 @@
 name: agent-sandbox
 
 release:
-  current-version: "0.1.0-SNAPSHOT"
+  current-version: "0.0.1-SNAPSHOT"
   next-version: "0.2.0-SNAPSHOT"
 
 integration:

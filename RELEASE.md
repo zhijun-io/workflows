@@ -92,7 +92,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 0.1.0)'
+        description: 'Release version (e.g., 0.0.1)'
         required: true
         type: string
 
@@ -109,11 +109,11 @@ jobs:
 ```
 
 **Inputs:**
-- `version` (required) - Release version (e.g., `0.1.0`)
+- `version` (required) - Release version (e.g., `0.0.1`)
 - `java-version` (default: `21`) - Java version to use
 - `skip-tests` (default: `false`) - Skip tests
 - `create-tag` (default: `true`) - Create and push Git tag
-- `tag-prefix` (default: `v`) - Tag prefix (e.g., `v` for `v0.1.0`)
+- `tag-prefix` (default: `v`) - Tag prefix (e.g., `v` for `v0.0.1`)
 
 **Secrets Required:**
 - `MAVEN_USERNAME` - Sonatype Portal username
@@ -132,14 +132,14 @@ The script requires Python 3.8+ with no additional dependencies.
 ### Usage
 
 ```bash
-# Release agent-sandbox 0.1.0
-python3 zhijun-io-release.py agent-sandbox 0.1.0
+# Release agent-sandbox 0.0.1
+python3 zhijun-io-release.py agent-sandbox 0.0.1
 
 # Dry run (preview without making changes)
-python3 zhijun-io-release.py agent-sandbox 0.1.0 --dry-run
+python3 zhijun-io-release.py agent-sandbox 0.0.1 --dry-run
 
 # Release with specific GitHub org
-python3 zhijun-io-release.py agent-judge 0.1.0 --org zhijun-io
+python3 zhijun-io-release.py agent-judge 0.0.1 --org zhijun-io
 ```
 
 ### What the Script Does
@@ -149,7 +149,7 @@ python3 zhijun-io-release.py agent-judge 0.1.0 --org zhijun-io
 3. **Verify** - Check no SNAPSHOT dependencies remain
 4. **Build** - Fast compile (skip tests for speed)
 5. **Commit** - Commit release version
-6. **Tag** - Create Git tag (e.g., `v0.1.0`)
+6. **Tag** - Create Git tag (e.g., `v0.0.1`)
 7. **Push** - Push tag to GitHub
 8. **Trigger** - Optionally trigger GitHub Actions release workflow
 

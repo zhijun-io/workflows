@@ -84,7 +84,7 @@ git push origin main
 ```bash
 # 手动触发
 # 访问 Actions → Release → Run workflow
-# 输入版本号，例如 0.1.0
+# 输入版本号，例如 0.0.1
 ```
 
 ## 常见问题

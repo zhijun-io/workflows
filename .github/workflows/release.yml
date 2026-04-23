@@ -11,7 +11,7 @@
 #   release:
 #     uses: zhijun-io/workflows/.github/workflows/release.yml@main
 #     with:
-#       version: '0.1.0'
+#       version: '0.0.1'
 #     secrets:
 #       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
 #       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -24,7 +24,7 @@ on:
   workflow_call:
     inputs:
       version:
-        description: 'Release version (e.g., 0.1.0)'
+        description: 'Release version (e.g., 0.0.1)'
         required: true
         type: string
       java-version:
@@ -48,7 +48,7 @@ on:
         type: boolean
         default: true
       tag-prefix:
-        description: 'Tag prefix (e.g., v for v0.1.0)'
+        description: 'Tag prefix (e.g., v for v0.0.1)'
         required: false
         type: string
         default: 'v'
@@ -136,9 +136,9 @@ jobs:
       - name: Bump to next SNAPSHOT version
         if: ${{ inputs.create-tag }}
         run: |
-          # Parse version and increment minor: 0.13.0 -> 0.14.0-SNAPSHOT
+          # Parse version and increment patch: 0.13.0 -> 0.13.1-SNAPSHOT
           IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
-          NEXT_VERSION="${major}.$((minor + 1)).0-SNAPSHOT"
+          NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
           echo "Bumping to next development version: ${NEXT_VERSION}"
           ./mvnw -ntp versions:set -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
           git add -A

@@ -9,8 +9,8 @@ Projects Supported:
 - agent-sandbox
 
 Usage:
-    python3 zhijun-io-release.py agent-sandbox 0.1.0 --dry-run
-    python3 zhijun-io-release.py agent-sandbox 0.1.0
+    python3 zhijun-io-release.py agent-sandbox 0.0.1 --dry-run
+    python3 zhijun-io-release.py agent-sandbox 0.0.1
 """
 
 import os
@@ -561,7 +561,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    %(prog)s spring-ai-sandbox 0.1.0 --dry-run
+    %(prog)s spring-ai-sandbox 0.0.1 --dry-run
 
 Available Projects:
     """ + "\n    ".join(f"{name}: {config['description']}"
@@ -570,7 +570,7 @@ Available Projects:
 
     parser.add_argument('project', choices=list(PROJECTS.keys()),
                        help='Project to release')
-    parser.add_argument('version', help='Target version (e.g., 0.1.0)')
+    parser.add_argument('version', help='Target version (e.g., 0.0.1)')
     parser.add_argument('--dry-run', action='store_true',
                        help='Preview commands without executing')
     parser.add_argument('--org', default='zhijun-io',

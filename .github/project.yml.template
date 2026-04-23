@@ -15,7 +15,7 @@ name: zhijun-example
 # Release configuration
 release:
   # Current release version (change this to trigger a release)
-  current-version: "0.1.0-SNAPSHOT"
+  current-version: "0.0.1-SNAPSHOT"
 
   # Next development version after release
   next-version: "0.2.0-SNAPSHOT"

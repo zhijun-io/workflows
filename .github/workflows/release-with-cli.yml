@@ -237,9 +237,9 @@ jobs:
       - name: Bump to next SNAPSHOT version
         if: ${{ inputs.create-tag }}
         run: |
-          # Parse version and increment minor: 0.13.0 -> 0.14.0-SNAPSHOT
+          # Parse version and increment patch: 0.13.0 -> 0.13.1-SNAPSHOT
           IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
-          NEXT_VERSION="${major}.$((minor + 1)).0-SNAPSHOT"
+          NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
           echo "Bumping to next development version: ${NEXT_VERSION}"
           ./mvnw -ntp versions:set -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
           git add -A
