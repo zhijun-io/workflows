@@ -256,3 +256,7 @@ Example release profile:
     </build>
 </profile>
 ```
+
+## References
+
+- https://github.com/spring-ai-community/community-workflows
