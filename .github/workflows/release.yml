@@ -66,6 +66,10 @@ on:
         description: 'GPG passphrase'
         required: true
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest

@@ -106,6 +106,10 @@ on:
         description: 'Google API key for Gemini CLI (repo-specific)'
         required: false
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
