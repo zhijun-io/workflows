@@ -2,7 +2,7 @@
 #
 # Usage:
 #   uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
-#   secrets: MAVEN_USERNAME, MAVEN_PASSWORD, MAVEN_GPG_KEY, MAVEN_GPG_PASSPHRASE
+#   secrets: MAVEN_USERNAME, MAVEN_PASSWORD, MAVEN_GPG_PRIVATE_KEY, MAVEN_GPG_PASSPHRASE
 
 name: Maven Publish Snapshot
 
@@ -59,7 +59,7 @@ on:
         required: true
       MAVEN_PASSWORD:
         required: true
-      MAVEN_GPG_KEY:
+      MAVEN_GPG_PRIVATE_KEY:
         required: false
       MAVEN_GPG_PASSPHRASE:
         required: false
@@ -85,7 +85,7 @@ jobs:
           server-id: ${{ inputs.maven-server-id }}
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
-          gpg-private-key: ${{ secrets.MAVEN_GPG_KEY }}
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Publish snapshot
