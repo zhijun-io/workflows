@@ -52,8 +52,7 @@ jobs:
 ```yaml
 name: Maven Publish Snapshot
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -110,7 +109,7 @@ JDK setup uses [`actions/setup-java@v4`](https://github.com/actions/setup-java) 
 | `java-version` | `21` | CI, snapshot, release |
 | `java-distribution` | `temurin` | CI, snapshot, release |
 | `use-maven-wrapper` | `true` | CI, snapshot, release |
-| `skip-tests` | `false` | CI, snapshot, release |
+| `skip-tests` | `false` | CI |
 | `maven-profiles` | *(empty)* | CI, snapshot, release (verify and deploy) |
 | `maven-extra-args` | `-B -ntp` | CI, snapshot, release |
 | `maven-server-id` | `central` | snapshot, release |
@@ -182,7 +181,6 @@ jobs:
     uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
     with:
       maven-profiles: release   # if Central/GPG plugins live in release profile
-      verify-first: true
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -190,15 +188,11 @@ jobs:
       MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 ```
 
-| Input | Default | Description |
-|-------|---------|-------------|
-| `verify-first` | `true` | Run `clean verify` before deploy |
-
 GPG secrets are optional but required for signed Central deployments.
 
 ### Maven Central Release (`maven-release.yml`)
 
-Set version → **commit release** → verify → deploy → **push release commit** → GitHub Release (tag) → bump next SNAPSHOT → push bump.
+Set version → **commit release** → deploy → **push release commit** → GitHub Release (tag) → bump next SNAPSHOT → push bump.
 
 ```yaml
 jobs:
@@ -236,7 +230,6 @@ jobs:
 
 | Failed after… | Central | Git default branch | Tag / Release | Remediation |
 |---------------|---------|-------------------|---------------|-------------|
-| verify | — | unchanged | — | Fix build; re-run |
 | deploy | maybe published | release commit not pushed | — | Check Central; do not re-deploy same version — fix and release next patch |
 | push release commit | published | unchanged | — | Manually push the release commit or revert Central if unpublished |
 | GitHub Release | published | release commit pushed | missing | Create tag/release manually at the release commit SHA |

@@ -236,4 +236,5 @@ jobs:
           goals: org.sonarsource.scanner.maven:sonar-maven-plugin:${{ inputs.sonar-maven-plugin-version }}:sonar
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: true
-          extra-args: -B -ntp ${{ steps.sonar.outputs.args }}
+          maven-profiles: ${{ inputs.maven-profiles }}
+          extra-args: ${{ inputs.maven-extra-args }} ${{ steps.sonar.outputs.args }}

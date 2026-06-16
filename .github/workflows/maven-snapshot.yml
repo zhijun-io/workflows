@@ -29,16 +29,6 @@ on:
         required: false
         type: boolean
         default: true
-      skip-tests:
-        description: 'Skip tests before publish'
-        required: false
-        type: boolean
-        default: false
-      verify-first:
-        description: 'Run verify before deploy'
-        required: false
-        type: boolean
-        default: true
       maven-profiles:
         description: 'Optional Maven profile(s) for verify and deploy (comma-separated)'
         required: false
@@ -88,24 +78,13 @@ jobs:
           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
-      - name: Verify before publish
-        if: ${{ inputs.verify-first }}
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
-        with:
-          working-directory: ${{ inputs.working-directory }}
-          goals: clean verify
-          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.skip-tests }}
-          maven-profiles: ${{ inputs.maven-profiles }}
-          extra-args: ${{ inputs.maven-extra-args }}
-
       - name: Publish snapshot
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
           working-directory: ${{ inputs.working-directory }}
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.verify-first || inputs.skip-tests }}
+          skip-tests: true
           maven-profiles: ${{ inputs.maven-profiles }}
           extra-args: ${{ inputs.maven-extra-args }}
         env:

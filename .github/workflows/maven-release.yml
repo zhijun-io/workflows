@@ -1,6 +1,6 @@
 # Reusable Maven Central release workflow for ZhiJun IO projects
 #
-# Flow: set version → commit release → verify → deploy → push release commit
+# Flow: set version → commit release → deploy → push release commit
 #       → GitHub Release (optional) → bump SNAPSHOT (optional) → push bump
 #
 # Usage:
@@ -50,11 +50,6 @@ on:
         required: false
         type: boolean
         default: true
-      skip-tests:
-        description: 'Skip running tests'
-        required: false
-        type: boolean
-        default: false
       maven-profiles:
         description: 'Optional Maven profile(s) for verify and deploy (comma-separated)'
         required: false
@@ -199,7 +194,7 @@ jobs:
           working-directory: ${{ inputs.working-directory }}
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.skip-tests }}
+          skip-tests: true
           maven-profiles: ${{ inputs.maven-profiles }}
           threads: 1C
           extra-args: ${{ inputs.maven-extra-args }}
