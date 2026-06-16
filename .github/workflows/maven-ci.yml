@@ -19,7 +19,7 @@ on:
         type: string
         default: '.'
       java-version:
-        description: 'Java version'
+        description: 'Java version for build'
         required: false
         type: string
         default: '21'
@@ -64,10 +64,15 @@ on:
         type: boolean
         default: false
       run-sonar:
-        description: 'Run SonarCloud scan after build (requires SONAR_TOKEN)'
+        description: 'Run SonarCloud scan in a separate job (requires SONAR_TOKEN)'
         required: false
         type: boolean
         default: false
+      sonar-java-version:
+        description: 'Java version for SonarCloud job'
+        required: false
+        type: string
+        default: '21'
       sonar-coverage-report-paths:
         description: 'JaCoCo XML paths for Sonar (comma-separated); omit if no coverage'
         required: false
@@ -86,8 +91,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: ${{ inputs.run-sonar == true && '0' || '1' }}
 
       - name: Set up JDK ${{ inputs.java-version }}
         uses: actions/setup-java@v4
@@ -107,48 +110,17 @@ jobs:
           maven-profiles: ${{ inputs.maven-profiles }}
           extra-args: ${{ inputs.maven-extra-args }}
 
-      - name: Prepare SonarCloud scan
-        id: sonar
+      - name: Upload Sonar build outputs
         if: ${{ inputs.run-sonar }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          JAVA_VERSION="${{ inputs.java-version }}"
-          JAVA_MAJOR=""
-          if [[ "$JAVA_VERSION" =~ ^1\.([0-9]+)(\.[0-9]+)*$ ]]; then
-            JAVA_MAJOR="${BASH_REMATCH[1]}"
-          elif [[ "$JAVA_VERSION" =~ ^([0-9]+) ]]; then
-            JAVA_MAJOR="${BASH_REMATCH[1]}"
-          fi
-          if [ -n "$JAVA_MAJOR" ] && [ "$JAVA_MAJOR" -lt 11 ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping SonarCloud (Java ${JAVA_VERSION} < 11)"
-            exit 0
-          fi
-          if [ -z "${SONAR_TOKEN:-}" ]; then
-            echo "::error::run-sonar is true but SONAR_TOKEN secret is not set"
-            exit 1
-          fi
-          ARGS="-Dsonar.host.url=https://sonarcloud.io"
-          ARGS="${ARGS} -Dsonar.organization=${GITHUB_REPOSITORY%%/*}"
-          ARGS="${ARGS} -Dsonar.projectKey=${GITHUB_REPOSITORY##*/}"
-          if [ -n "${{ inputs.sonar-coverage-report-paths }}" ]; then
-            ARGS="${ARGS} -Dsonar.coverage.jacoco.xmlReportPaths=${{ inputs.sonar-coverage-report-paths }}"
-          fi
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
-
-      - name: SonarCloud Scan
-        if: ${{ inputs.run-sonar && steps.sonar.outputs.skip == 'false' }}
-        uses: SonarSource/sonarqube-scan-action@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        uses: actions/upload-artifact@v4
         with:
-          projectBaseDir: ${{ inputs.working-directory }}
-          args: ${{ steps.sonar.outputs.args }}
+          name: sonar-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ inputs.working-directory == '.' && '**/target/classes/' || format('{0}/**/target/classes/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/jacoco.exec' || format('{0}/**/target/jacoco.exec', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/site/jacoco/' || format('{0}/**/target/site/jacoco/', inputs.working-directory) }}
+          retention-days: 1
+          if-no-files-found: warn
 
       - name: Upload test results
         if: ${{ inputs.upload-test-results && !inputs.skip-tests && always() }}
@@ -171,3 +143,56 @@ jobs:
             ${{ inputs.working-directory == '.' && '**/target/jacoco.exec' || format('{0}/**/target/jacoco.exec', inputs.working-directory) }}
           retention-days: 7
           if-no-files-found: warn
+
+  sonar:
+    needs: build
+    if: ${{ inputs.run-sonar }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Sonar build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: sonar-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .
+
+      - name: Set up JDK ${{ inputs.sonar-java-version }} (Sonar)
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.sonar-java-version }}
+          distribution: ${{ inputs.java-distribution }}
+
+      - name: Prepare SonarCloud scan
+        id: sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::error::run-sonar is true but SONAR_TOKEN secret is not set"
+            exit 1
+          fi
+          ARGS="-Dsonar.host.url=https://sonarcloud.io"
+          ARGS="${ARGS} -Dsonar.organization=${GITHUB_REPOSITORY%%/*}"
+          ARGS="${ARGS} -Dsonar.projectKey=${GITHUB_REPOSITORY##*/}"
+          if [ -n "${{ inputs.sonar-coverage-report-paths }}" ]; then
+            ARGS="${ARGS} -Dsonar.coverage.jacoco.xmlReportPaths=${{ inputs.sonar-coverage-report-paths }}"
+          fi
+          echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ${{ inputs.working-directory }}
+          args: ${{ steps.sonar.outputs.args }}

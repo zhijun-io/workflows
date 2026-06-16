@@ -137,22 +137,29 @@ jobs:
 | `maven-goals` | `clean verify` | Maven goals to run |
 | `upload-test-results` | `true` | Upload Surefire/Failsafe reports |
 | `upload-coverage` | `false` | Upload JaCoCo site/exec artifacts |
-| `run-sonar` | `false` | SonarCloud scan (Java 11+; skips Java 8 / 1.8 / 8.0) |
+| `run-sonar` | `false` | SonarCloud in a separate job (JDK 21 by default) |
+| `sonar-java-version` | `21` | Java version for the Sonar job only |
 | `sonar-coverage-report-paths` | *(empty)* | JaCoCo XML paths for Sonar |
+
+Sonar runs in job **`sonar`** after **`build`**, using `sonar-java-version` (default `21`) so projects can build on Java 8 and scan on Java 21. The build job uploads `target/classes` and JaCoCo outputs for analysis.
 
 SonarCloud uses `https://sonarcloud.io`, org = GitHub owner, project key = repository name. Override in `sonar-project.properties` if needed.
 
-When `run-sonar: true`, the **calling job** must also grant `pull-requests: read` (for PR decoration):
+When `run-sonar: true`, the **caller workflow** must grant `pull-requests: read` (Sonar job uses it for PR decoration):
 
 ```yaml
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   build:
-    permissions:
-      contents: read
-      pull-requests: read
     uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
     with:
+      java-version: '8'
       run-sonar: true
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 ```
 
 ### Publish Snapshot (`maven-snapshot.yml`)
