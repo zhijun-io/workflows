@@ -56,4 +56,4 @@ runs:
           SKIP_ARGS="-DskipTests"
         fi
         # shellcheck disable=SC2086
-        $MVN ${{ inputs.goals }} ${{ inputs.extra-args }} ${PROFILE_ARGS} ${THREAD_ARGS} ${SKIP_ARGS}}
+        $MVN ${{ inputs.goals }} ${{ inputs.extra-args }} ${PROFILE_ARGS} ${THREAD_ARGS} ${SKIP_ARGS}
