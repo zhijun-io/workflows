@@ -111,7 +111,7 @@ jobs:
           pom-file: ${{ inputs.pom-file }}
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
 
-      - name: Verify no SNAPSHOT versions
+      - name: Verify no SNAPSHOT dependency versions
         uses: zhijun-io/workflows/.github/actions/verify-no-snapshot-versions@main
 
       - name: Build and verify
