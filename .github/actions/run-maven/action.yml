@@ -47,5 +47,9 @@ runs:
         if [ "${{ inputs.skip-tests }}" = "true" ]; then
           SKIP_ARGS="-DskipTests"
         fi
+        GPG_ARGS=""
+        if [ -n "${MAVEN_GPG_PASSPHRASE:-}" ]; then
+          GPG_ARGS="-Dgpg.arg=--pinentry-mode -Dgpg.arg=loopback -Dgpg.passphrase=${MAVEN_GPG_PASSPHRASE}"
+        fi
         # shellcheck disable=SC2086
-        $MVN ${{ inputs.goals }} ${{ inputs.extra-args }} ${PROFILE_ARGS} ${THREAD_ARGS} ${SKIP_ARGS}
+        $MVN ${{ inputs.goals }} ${{ inputs.extra-args }} ${PROFILE_ARGS} ${THREAD_ARGS} ${SKIP_ARGS} ${GPG_ARGS}
