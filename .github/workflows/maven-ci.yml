@@ -64,23 +64,43 @@ on:
         type: boolean
         default: false
       run-sonar:
-        description: 'Run SonarCloud scan in a separate job (requires SONAR_TOKEN)'
+        description: 'Run Sonar scan in a separate job via SonarScanner for Maven (requires SONAR_TOKEN)'
         required: false
         type: boolean
         default: false
       sonar-java-version:
-        description: 'Java version for SonarCloud job'
+        description: 'Java version for Sonar job (scanner requires JDK 21+)'
         required: false
         type: string
         default: '21'
+      sonar-host-url:
+        description: 'Sonar server URL (SonarCloud default)'
+        required: false
+        type: string
+        default: 'https://sonarcloud.io'
+      sonar-organization:
+        description: 'SonarCloud organization key; empty on SonarCloud = GitHub owner; omit on self-hosted'
+        required: false
+        type: string
+        default: ''
+      sonar-project-key:
+        description: 'Sonar project key; empty = GitHub repository name'
+        required: false
+        type: string
+        default: ''
       sonar-coverage-report-paths:
         description: 'JaCoCo XML paths for Sonar (comma-separated); omit if no coverage'
         required: false
         type: string
         default: ''
+      sonar-maven-plugin-version:
+        description: 'SonarScanner for Maven plugin version'
+        required: false
+        type: string
+        default: '5.7.0.6970'
     secrets:
       SONAR_TOKEN:
-        description: 'SonarCloud token (required when run-sonar is true)'
+        description: 'Sonar token (required when run-sonar is true)'
         required: false
 
 jobs:
@@ -119,6 +139,8 @@ jobs:
             ${{ inputs.working-directory == '.' && '**/target/classes/' || format('{0}/**/target/classes/', inputs.working-directory) }}
             ${{ inputs.working-directory == '.' && '**/target/jacoco.exec' || format('{0}/**/target/jacoco.exec', inputs.working-directory) }}
             ${{ inputs.working-directory == '.' && '**/target/site/jacoco/' || format('{0}/**/target/site/jacoco/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/surefire-reports/' || format('{0}/**/target/surefire-reports/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/failsafe-reports/' || format('{0}/**/target/failsafe-reports/', inputs.working-directory) }}
           retention-days: 1
           if-no-files-found: warn
 
@@ -168,8 +190,10 @@ jobs:
         with:
           java-version: ${{ inputs.sonar-java-version }}
           distribution: ${{ inputs.java-distribution }}
+          cache: maven
+          cache-dependency-path: ${{ inputs.working-directory == '.' && '**/pom.xml' || format('{0}/**/pom.xml', inputs.working-directory) }}
 
-      - name: Prepare SonarCloud scan
+      - name: Prepare Sonar scan
         id: sonar
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -180,19 +204,36 @@ jobs:
             echo "::error::run-sonar is true but SONAR_TOKEN secret is not set"
             exit 1
           fi
-          ARGS="-Dsonar.host.url=https://sonarcloud.io"
-          ARGS="${ARGS} -Dsonar.organization=${GITHUB_REPOSITORY%%/*}"
-          ARGS="${ARGS} -Dsonar.projectKey=${GITHUB_REPOSITORY##*/}"
+          HOST="${{ inputs.sonar-host-url }}"
+          if [ -z "$HOST" ]; then
+            HOST="https://sonarcloud.io"
+          fi
+          ORG="${{ inputs.sonar-organization }}"
+          if [ -z "$ORG" ] && [[ "$HOST" == *"sonarcloud.io"* ]]; then
+            ORG="${GITHUB_REPOSITORY%%/*}"
+          fi
+          PROJECT_KEY="${{ inputs.sonar-project-key }}"
+          if [ -z "$PROJECT_KEY" ]; then
+            PROJECT_KEY="${GITHUB_REPOSITORY##*/}"
+          fi
+          ARGS="-Dsonar.host.url=${HOST}"
+          if [ -n "$ORG" ]; then
+            ARGS="${ARGS} -Dsonar.organization=${ORG}"
+          fi
+          ARGS="${ARGS} -Dsonar.projectKey=${PROJECT_KEY}"
           if [ -n "${{ inputs.sonar-coverage-report-paths }}" ]; then
             ARGS="${ARGS} -Dsonar.coverage.jacoco.xmlReportPaths=${{ inputs.sonar-coverage-report-paths }}"
           fi
           echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v4
+      - name: Sonar analysis
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          projectBaseDir: ${{ inputs.working-directory }}
-          args: ${{ steps.sonar.outputs.args }}
+          working-directory: ${{ inputs.working-directory }}
+          goals: org.sonarsource.scanner.maven:sonar-maven-plugin:${{ inputs.sonar-maven-plugin-version }}:sonar
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: true
+          extra-args: -B -ntp ${{ steps.sonar.outputs.args }}

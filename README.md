@@ -137,13 +137,25 @@ jobs:
 | `maven-goals` | `clean verify` | Maven goals to run |
 | `upload-test-results` | `true` | Upload Surefire/Failsafe reports |
 | `upload-coverage` | `false` | Upload JaCoCo site/exec artifacts |
-| `run-sonar` | `false` | SonarCloud in a separate job (JDK 21 by default) |
+| `run-sonar` | `false` | Sonar scan in a separate job via SonarScanner for Maven (JDK 21 by default) |
 | `sonar-java-version` | `21` | Java version for the Sonar job only |
+| `sonar-host-url` | `https://sonarcloud.io` | Sonar server URL |
+| `sonar-organization` | *(empty)* | SonarCloud organization; default = GitHub owner on SonarCloud; omit on self-hosted |
+| `sonar-project-key` | *(empty)* | Sonar project key; default = GitHub repository name |
 | `sonar-coverage-report-paths` | *(empty)* | JaCoCo XML paths for Sonar |
+| `sonar-maven-plugin-version` | `5.7.0.6970` | SonarScanner for Maven plugin version |
 
-Sonar runs in job **`sonar`** after **`build`**, using `sonar-java-version` (default `21`) so projects can build on Java 8 and scan on Java 21. The build job uploads `target/classes` and JaCoCo outputs for analysis.
+Sonar runs in job **`sonar`** after **`build`**, using `sonar-java-version` (default `21`) and **`org.sonarsource.scanner.maven:sonar-maven-plugin`**, so projects can build on Java 8 and scan on Java 21. The build job uploads `target/classes`, JaCoCo outputs, and test reports for analysis.
 
-SonarCloud uses `https://sonarcloud.io`, org = GitHub owner, project key = repository name. Override in `sonar-project.properties` if needed.
+Override Sonar connection via workflow inputs (or `pom.xml` properties):
+
+```yaml
+with:
+  run-sonar: true
+  sonar-host-url: https://sonarcloud.io
+  sonar-organization: my-org        # omit for GitHub owner
+  sonar-project-key: my-project     # omit for repository name
+```
 
 When `run-sonar: true`, the **caller workflow** must grant `pull-requests: read` (Sonar job uses it for PR decoration):
 
@@ -270,7 +282,7 @@ Configure at **organization** or **repository** level: Settings → Secrets and 
 | `MAVEN_PASSWORD` | Snapshot, Release | Sonatype Central Portal token (not account password) |
 | `MAVEN_GPG_PRIVATE_KEY` | Signed publish / Release | ASCII-armored GPG private key |
 | `MAVEN_GPG_PASSPHRASE` | Signed publish / Release | GPG key passphrase |
-| `SONAR_TOKEN` | CI Sonar (`run-sonar: true`) | SonarCloud token |
+| `SONAR_TOKEN` | CI Sonar (`run-sonar: true`) | Sonar server token (SonarCloud or self-hosted) |
 
 ### Setup
 
