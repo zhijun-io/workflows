@@ -13,6 +13,11 @@ name: Maven CI
 on:
   workflow_call:
     inputs:
+      working-directory:
+        description: 'Maven project root directory'
+        required: false
+        type: string
+        default: '.'
       java-version:
         description: 'Java version to use'
         required: false
@@ -58,11 +63,40 @@ on:
         required: false
         type: boolean
         default: true
+      upload-coverage:
+        description: 'Upload JaCoCo coverage reports as artifact'
+        required: false
+        type: boolean
+        default: true
+      run-sonar:
+        description: 'Run SonarQube analysis after build'
+        required: false
+        type: boolean
+        default: false
+      sonar-host-url:
+        description: 'SonarQube host URL'
+        required: false
+        type: string
+        default: 'https://sonarcloud.io'
+      sonar-organization:
+        description: 'SonarQube organization (defaults to GitHub owner)'
+        required: false
+        type: string
+        default: ''
+      sonar-project-key:
+        description: 'SonarQube project key (defaults to repository name)'
+        required: false
+        type: string
+        default: ''
       pre-build-script:
         description: 'Optional shell script to run before Maven (e.g. reclaim disk space)'
         required: false
         type: string
         default: ''
+    secrets:
+      SONAR_TOKEN:
+        description: 'SonarQube token (required when run-sonar is true)'
+        required: false
 
 jobs:
   build:
@@ -70,6 +104,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ inputs.run-sonar == true && '0' || '1' }}
 
       - name: Pre-build script
         if: ${{ inputs.pre-build-script != '' }}
@@ -82,11 +118,13 @@ jobs:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distribution }}
           cache: maven
+          cache-dependency-path: ${{ inputs.working-directory == '.' && '**/pom.xml' || format('{0}/**/pom.xml', inputs.working-directory) }}
 
       - name: Staged CI (validate / test / verify)
         if: ${{ inputs.staged-ci }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: validate
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
@@ -95,6 +133,7 @@ jobs:
         if: ${{ inputs.staged-ci }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: test
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
@@ -104,6 +143,7 @@ jobs:
         if: ${{ inputs.staged-ci }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: verify
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
@@ -114,16 +154,41 @@ jobs:
         if: ${{ !inputs.staged-ci }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: ${{ inputs.maven-goals }}
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
 
+      - name: SonarQube analysis
+        if: ${{ inputs.run-sonar }}
+        uses: zhijun-io/workflows/.github/actions/run-sonar@main
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          java-version: ${{ inputs.java-version }}
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          sonar-host-url: ${{ inputs.sonar-host-url }}
+          sonar-organization: ${{ inputs.sonar-organization }}
+          sonar-project-key: ${{ inputs.sonar-project-key }}
+
       - name: Upload test results
-        if: ${{ inputs.upload-test-results && always() }}
+        if: ${{ inputs.upload-test-results && !inputs.skip-tests && always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            **/target/surefire-reports/
-            **/target/failsafe-reports/
+            ${{ inputs.working-directory == '.' && '**/target/surefire-reports/' || format('{0}/**/target/surefire-reports/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/failsafe-reports/' || format('{0}/**/target/failsafe-reports/', inputs.working-directory) }}
           retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload coverage reports
+        if: ${{ inputs.upload-coverage && !inputs.skip-tests && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ inputs.working-directory == '.' && '**/target/site/jacoco/' || format('{0}/**/target/site/jacoco/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/jacoco.exec' || format('{0}/**/target/jacoco.exec', inputs.working-directory) }}
+          retention-days: 7
+          if-no-files-found: warn

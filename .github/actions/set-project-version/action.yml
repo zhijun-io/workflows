@@ -9,17 +9,26 @@ inputs:
     required: false
     default: 'project-version'
   pom-file:
-    description: Path to root POM for revision updates
+    description: POM file name or path relative to working-directory
     required: false
     default: 'pom.xml'
+  working-directory:
+    description: Maven project root directory
+    required: false
+    default: '.'
   use-maven-wrapper:
     description: Prefer ./mvnw for versions:set when available
+    required: false
+    default: 'true'
+  process-all-modules:
+    description: Pass -DprocessAllModules=true to versions:set
     required: false
     default: 'true'
 runs:
   using: composite
   steps:
     - shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
         VERSION="${{ inputs.version }}"
@@ -37,5 +46,9 @@ runs:
           else
             MVN="mvn"
           fi
-          $MVN -ntp versions:set -DnewVersion="${VERSION}" -DgenerateBackupPoms=false
+          MODULE_ARGS=()
+          if [ "${{ inputs.process-all-modules }}" = "true" ]; then
+            MODULE_ARGS=(-DprocessAllModules=true)
+          fi
+          $MVN -ntp versions:set -DnewVersion="${VERSION}" -DgenerateBackupPoms=false "${MODULE_ARGS[@]}"
         fi

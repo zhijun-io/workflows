@@ -1,9 +1,13 @@
 name: Run Maven
-description: Run Maven goals with optional wrapper, profiles, and threading
+description: Run Maven goals with optional wrapper, profiles, threading, and working directory
 inputs:
   goals:
     description: Maven goals (e.g. clean verify)
     required: true
+  working-directory:
+    description: Directory to run Maven from
+    required: false
+    default: '.'
   use-maven-wrapper:
     description: Use ./mvnw when present; otherwise mvn
     required: false
@@ -28,6 +32,7 @@ runs:
   using: composite
   steps:
     - shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
         if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then

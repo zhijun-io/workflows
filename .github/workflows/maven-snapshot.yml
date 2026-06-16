@@ -10,6 +10,11 @@ name: Maven Publish Snapshot
 on:
   workflow_call:
     inputs:
+      working-directory:
+        description: 'Maven project root directory'
+        required: false
+        type: string
+        default: '.'
       java-version:
         description: 'Java version to use'
         required: false
@@ -72,6 +77,7 @@ jobs:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distribution }}
           cache: maven
+          cache-dependency-path: ${{ inputs.working-directory == '.' && '**/pom.xml' || format('{0}/**/pom.xml', inputs.working-directory) }}
           server-id: central
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
@@ -82,6 +88,7 @@ jobs:
         if: ${{ inputs.verify-first }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: clean verify
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
@@ -91,6 +98,7 @@ jobs:
         if: ${{ inputs.release-profile }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: true
@@ -104,6 +112,7 @@ jobs:
         if: ${{ !inputs.release-profile }}
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: true

@@ -1,13 +1,23 @@
 name: Verify no SNAPSHOT versions
 description: Fail if any pom.xml still references SNAPSHOT versions (post release version set)
+inputs:
+  working-directory:
+    description: Directory to scan for pom.xml files
+    required: false
+    default: '.'
 runs:
   using: composite
   steps:
     - shell: bash
       run: |
         set -euo pipefail
-        if grep -r "SNAPSHOT" --include="pom.xml" . | grep -v "/target/" | grep -v "<!--"; then
-          echo "ERROR: Found SNAPSHOT references in POM files"
+        WORK_DIR="${{ inputs.working-directory }}"
+        if [ ! -d "$WORK_DIR" ]; then
+          echo "ERROR: Working directory not found: ${WORK_DIR}"
           exit 1
         fi
-        echo "No SNAPSHOT references found in POM files"
+        if grep -r "SNAPSHOT" --include="pom.xml" "$WORK_DIR" | grep -v "/target/" | grep -v "<!--"; then
+          echo "ERROR: Found SNAPSHOT references in POM files under ${WORK_DIR}"
+          exit 1
+        fi
+        echo "No SNAPSHOT references found in POM files under ${WORK_DIR}"
