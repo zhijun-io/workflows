@@ -1,25 +1,30 @@
 # Reusable CI workflow for ZhiJun IO Maven projects
 #
-# Usage:
+# Minimal:
 #   uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
+#
+# With optional Maven profile(s) defined in your POM:
 #   with:
 #     java-version: '8'
-#     use-maven-wrapper: false
-#     staged-ci: true
-#     verify-profiles: coverage
+#     maven-profiles: your-profile
 
 name: Maven CI
 
 on:
   workflow_call:
     inputs:
+      working-directory:
+        description: 'Maven project root directory'
+        required: false
+        type: string
+        default: '.'
       java-version:
-        description: 'Java version to use'
+        description: 'Java version'
         required: false
         type: string
         default: '21'
       java-distribution:
-        description: 'Java distribution to use'
+        description: 'Java distribution'
         required: false
         type: string
         default: 'temurin'
@@ -29,52 +34,61 @@ on:
         type: boolean
         default: true
       maven-goals:
-        description: 'Maven goals when staged-ci is false'
+        description: 'Maven goals (e.g. clean verify)'
         required: false
         type: string
         default: 'clean verify'
-      staged-ci:
-        description: 'Run validate, test, then verify (Rose-style pipeline)'
-        required: false
-        type: boolean
-        default: false
-      verify-profiles:
-        description: 'Maven profile for final verify step (e.g. coverage)'
+      maven-profiles:
+        description: 'Optional Maven profile(s) (comma-separated)'
         required: false
         type: string
         default: ''
-      maven-threads:
-        description: 'Maven -T for test/verify steps in staged-ci'
+      maven-extra-args:
+        description: 'Extra Maven CLI arguments (default -B -ntp)'
         required: false
         type: string
-        default: '1'
+        default: '-B -ntp'
       skip-tests:
         description: 'Skip running tests'
         required: false
         type: boolean
         default: false
       upload-test-results:
-        description: 'Upload test results as artifact'
+        description: 'Upload test results artifact'
         required: false
         type: boolean
         default: true
-      pre-build-script:
-        description: 'Optional shell script to run before Maven (e.g. reclaim disk space)'
+      upload-coverage:
+        description: 'Upload JaCoCo coverage artifact'
+        required: false
+        type: boolean
+        default: false
+      run-sonar:
+        description: 'Run SonarCloud scan after build (requires SONAR_TOKEN)'
+        required: false
+        type: boolean
+        default: false
+      sonar-coverage-report-paths:
+        description: 'JaCoCo XML paths for Sonar (comma-separated); omit if no coverage'
         required: false
         type: string
         default: ''
+    secrets:
+      SONAR_TOKEN:
+        description: 'SonarCloud token (required when run-sonar is true)'
+        required: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Pre-build script
-        if: ${{ inputs.pre-build-script != '' }}
-        shell: bash
-        run: ${{ inputs.pre-build-script }}
+        with:
+          fetch-depth: ${{ inputs.run-sonar == true && '0' || '1' }}
 
       - name: Set up JDK ${{ inputs.java-version }}
         uses: actions/setup-java@v4
@@ -82,48 +96,79 @@ jobs:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distribution }}
           cache: maven
-
-      - name: Staged CI (validate / test / verify)
-        if: ${{ inputs.staged-ci }}
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
-        with:
-          goals: validate
-          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.skip-tests }}
-
-      - name: Staged CI — test
-        if: ${{ inputs.staged-ci }}
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
-        with:
-          goals: test
-          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.skip-tests }}
-          threads: ${{ inputs.maven-threads }}
-
-      - name: Staged CI — verify
-        if: ${{ inputs.staged-ci }}
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
-        with:
-          goals: verify
-          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.skip-tests }}
-          maven-profiles: ${{ inputs.verify-profiles }}
-          threads: ${{ inputs.maven-threads }}
+          cache-dependency-path: ${{ inputs.working-directory == '.' && '**/pom.xml' || format('{0}/**/pom.xml', inputs.working-directory) }}
 
       - name: Build with Maven
-        if: ${{ !inputs.staged-ci }}
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        uses: ./.github/actions/run-maven
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: ${{ inputs.maven-goals }}
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
+          maven-profiles: ${{ inputs.maven-profiles }}
+          extra-args: ${{ inputs.maven-extra-args }}
+
+      - name: Prepare SonarCloud scan
+        id: sonar
+        if: ${{ inputs.run-sonar }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAVA_VERSION="${{ inputs.java-version }}"
+          JAVA_MAJOR=""
+          if [[ "$JAVA_VERSION" =~ ^1\.([0-9]+)(\.[0-9]+)*$ ]]; then
+            JAVA_MAJOR="${BASH_REMATCH[1]}"
+          elif [[ "$JAVA_VERSION" =~ ^([0-9]+) ]]; then
+            JAVA_MAJOR="${BASH_REMATCH[1]}"
+          fi
+          if [ -n "$JAVA_MAJOR" ] && [ "$JAVA_MAJOR" -lt 11 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping SonarCloud (Java ${JAVA_VERSION} < 11)"
+            exit 0
+          fi
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::error::run-sonar is true but SONAR_TOKEN secret is not set"
+            exit 1
+          fi
+          ARGS="-Dsonar.host.url=https://sonarcloud.io"
+          ARGS="${ARGS} -Dsonar.organization=${GITHUB_REPOSITORY%%/*}"
+          ARGS="${ARGS} -Dsonar.projectKey=${GITHUB_REPOSITORY##*/}"
+          if [ -n "${{ inputs.sonar-coverage-report-paths }}" ]; then
+            ARGS="${ARGS} -Dsonar.coverage.jacoco.xmlReportPaths=${{ inputs.sonar-coverage-report-paths }}"
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
+
+      - name: SonarCloud Scan
+        if: ${{ inputs.run-sonar && steps.sonar.outputs.skip == 'false' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ${{ inputs.working-directory }}
+          args: ${{ steps.sonar.outputs.args }}
 
       - name: Upload test results
-        if: ${{ inputs.upload-test-results && always() }}
+        if: ${{ inputs.upload-test-results && !inputs.skip-tests && always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            **/target/surefire-reports/
-            **/target/failsafe-reports/
+            ${{ inputs.working-directory == '.' && '**/target/surefire-reports/' || format('{0}/**/target/surefire-reports/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/failsafe-reports/' || format('{0}/**/target/failsafe-reports/', inputs.working-directory) }}
           retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload coverage reports
+        if: ${{ inputs.upload-coverage && !inputs.skip-tests && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ inputs.working-directory == '.' && '**/target/site/jacoco/' || format('{0}/**/target/site/jacoco/', inputs.working-directory) }}
+            ${{ inputs.working-directory == '.' && '**/target/jacoco.exec' || format('{0}/**/target/jacoco.exec', inputs.working-directory) }}
+          retention-days: 7
+          if-no-files-found: warn

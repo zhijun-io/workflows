@@ -1,4 +1,4 @@
-# CI for Rose (Java 8, staged validate/test/verify -Pcoverage)
+# CI for Rose (Java 8, clean verify)
 # Place at .github/workflows/maven-ci.yml in zhijun-io/rose
 
 name: Maven CI
@@ -23,5 +23,3 @@ jobs:
     with:
       java-version: '8'
       use-maven-wrapper: false
-      staged-ci: true
-      verify-profiles: coverage

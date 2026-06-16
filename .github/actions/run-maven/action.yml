@@ -1,9 +1,13 @@
 name: Run Maven
-description: Run Maven goals with optional wrapper, profiles, and threading
+description: Run Maven goals with optional wrapper, profiles, threading, and working directory
 inputs:
   goals:
     description: Maven goals (e.g. clean verify)
     required: true
+  working-directory:
+    description: Directory to run Maven from
+    required: false
+    default: '.'
   use-maven-wrapper:
     description: Use ./mvnw when present; otherwise mvn
     required: false
@@ -13,7 +17,7 @@ inputs:
     required: false
     default: 'false'
   maven-profiles:
-    description: Maven profile id(s) for -P (no spaces)
+    description: Maven profile id(s) for -P (comma-separated, no spaces)
     required: false
     default: ''
   extra-args:
@@ -28,12 +32,16 @@ runs:
   using: composite
   steps:
     - shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
-        if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then
-          MVN="./mvnw"
-        else
-          MVN="mvn"
+        MVN="mvn"
+        if [ "${{ inputs.use-maven-wrapper }}" = "true" ]; then
+          if [ -f ./mvnw ]; then
+            MVN="./mvnw"
+          elif [ -n "${GITHUB_WORKSPACE:-}" ] && [ -f "${GITHUB_WORKSPACE}/mvnw" ]; then
+            MVN="${GITHUB_WORKSPACE}/mvnw"
+          fi
         fi
         PROFILE_ARGS=""
         if [ -n "${{ inputs.maven-profiles }}" ]; then

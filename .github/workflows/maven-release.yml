@@ -1,12 +1,15 @@
 # Reusable Maven Central release workflow for ZhiJun IO projects
 #
+# Flow: set version → commit release → verify → deploy → push release commit
+#       → GitHub Release (optional) → bump SNAPSHOT (optional) → push bump
+#
 # Usage:
 #   uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
 #   with:
 #     version: '0.1.0'
-#     version-property: revision
 #     java-version: '8'
 #     use-maven-wrapper: false
+# version-property defaults to auto (<revision> or versions:set)
 
 name: Maven Central Release
 
@@ -18,22 +21,27 @@ on:
         required: true
         type: string
       version-property:
-        description: 'project-version (mvn versions:set) or revision (<revision> property)'
+        description: 'auto, project-version (versions:set), or revision (<revision> property)'
         required: false
         type: string
-        default: 'project-version'
+        default: 'auto'
       pom-file:
-        description: 'Root POM path for revision updates'
+        description: 'POM file relative to working-directory'
         required: false
         type: string
         default: 'pom.xml'
+      working-directory:
+        description: 'Maven project root directory'
+        required: false
+        type: string
+        default: '.'
       java-version:
-        description: 'Java version to use'
+        description: 'Java version'
         required: false
         type: string
         default: '21'
       java-distribution:
-        description: 'Java distribution to use'
+        description: 'Java distribution'
         required: false
         type: string
         default: 'temurin'
@@ -47,13 +55,18 @@ on:
         required: false
         type: boolean
         default: false
-      verify-profiles:
-        description: 'Maven profile for verify (e.g. coverage)'
+      maven-profiles:
+        description: 'Optional Maven profile(s) for verify and deploy (comma-separated)'
         required: false
         type: string
         default: ''
+      maven-server-id:
+        description: 'Maven server ID in settings.xml / pom'
+        required: false
+        type: string
+        default: 'central'
       create-tag:
-        description: 'Create and push Git tag'
+        description: 'Create GitHub Release (and tag) with optional artifacts'
         required: false
         type: boolean
         default: true
@@ -67,6 +80,16 @@ on:
         required: false
         type: boolean
         default: true
+      next-snapshot-version:
+        description: 'Override auto patch-bump SNAPSHOT (e.g. 0.2.0-SNAPSHOT)'
+        required: false
+        type: string
+        default: ''
+      maven-extra-args:
+        description: 'Extra Maven CLI arguments (default -B -ntp)'
+        required: false
+        type: string
+        default: '-B -ntp'
     secrets:
       MAVEN_USERNAME:
         description: 'Maven Central username / Portal token username'
@@ -84,63 +107,147 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: maven-central-release-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Resolve default branch
+        id: default-branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BRANCH="$(gh repo view "${GITHUB_REPOSITORY}" --json defaultBranchRef --jq .defaultBranchRef.name)"
+          if [ -z "$BRANCH" ]; then
+            echo "::error::Could not resolve default branch for ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          echo "name=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "Default branch: ${BRANCH}"
+
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.default-branch.outputs.name }}
+
+      - name: Validate release version input
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          if [[ "$VERSION" == *"SNAPSHOT"* ]]; then
+            echo "::error::Cannot release a SNAPSHOT version: ${VERSION}"
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::warning::Release version may not follow semantic versioning: ${VERSION}"
+          fi
+          echo "Release version input is valid: ${VERSION}"
 
       - name: Set up JDK ${{ inputs.java-version }}
         uses: actions/setup-java@v4
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
         with:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distribution }}
           cache: maven
-          server-id: central
+          cache-dependency-path: ${{ inputs.working-directory == '.' && '**/pom.xml' || format('{0}/**/pom.xml', inputs.working-directory) }}
+          server-id: ${{ inputs.maven-server-id }}
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Set version
-        uses: zhijun-io/workflows/.github/actions/set-project-version@main
+        uses: ./.github/actions/set-project-version
         with:
           version: ${{ inputs.version }}
+          expected-version: ${{ inputs.version }}
           version-property: ${{ inputs.version-property }}
           pom-file: ${{ inputs.pom-file }}
+          working-directory: ${{ inputs.working-directory }}
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
 
-      - name: Verify no SNAPSHOT dependency versions
-        uses: zhijun-io/workflows/.github/actions/verify-no-snapshot-versions@main
+      - name: Commit release version
+        id: release-commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mapfile -t POM_FILES < <(git diff --name-only | grep -E '(^|/)pom\.xml$' || true)
+          if [ "${#POM_FILES[@]}" -eq 0 ]; then
+            echo "::error::No pom.xml changes after set-project-version"
+            exit 1
+          fi
+          git add "${POM_FILES[@]}"
+          git commit -m "chore: release version ${{ inputs.version }}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build and verify
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        uses: ./.github/actions/run-maven
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: clean verify
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
-          maven-profiles: ${{ inputs.verify-profiles }}
+          maven-profiles: ${{ inputs.maven-profiles }}
+          extra-args: ${{ inputs.maven-extra-args }}
 
       - name: Publish release to Maven Central
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        uses: ./.github/actions/run-maven
         with:
+          working-directory: ${{ inputs.working-directory }}
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: true
-          maven-profiles: release
+          maven-profiles: ${{ inputs.maven-profiles }}
+          threads: 1C
+          extra-args: ${{ inputs.maven-extra-args }}
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Create Git tag
-        if: ${{ inputs.create-tag }}
+      - name: Push release commit to default branch
+        shell: bash
+        env:
+          BRANCH: ${{ steps.default-branch.outputs.name }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a ${{ inputs.tag-prefix }}${{ inputs.version }} -m "Release ${{ inputs.tag-prefix }}${{ inputs.version }}"
-          git push origin ${{ inputs.tag-prefix }}${{ inputs.version }}
+          set -euo pipefail
+          git push origin "${{ steps.release-commit.outputs.sha }}:refs/heads/${BRANCH}"
+
+      - name: Collect release artifacts
+        if: ${{ inputs.create-tag }}
+        id: release-artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK_DIR="${{ inputs.working-directory }}"
+          mapfile -t FILES < <(
+            find "$WORK_DIR" \( -path '*/target/*.jar' -o -path '*/target/*.pom' -o -path '*/target/*.asc' \) \
+              ! -path '*/original/*' \
+              ! -name '*-sources.jar' \
+              ! -name '*-javadoc.jar' \
+              | sort -u
+          )
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "No release artifacts found under ${WORK_DIR}"
+            exit 0
+          fi
+          {
+            echo "files<<EOF"
+            printf '%s\n' "${FILES[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: ${{ inputs.create-tag }}
@@ -148,28 +255,60 @@ jobs:
         with:
           tag_name: ${{ inputs.tag-prefix }}${{ inputs.version }}
           name: ${{ inputs.tag-prefix }}${{ inputs.version }}
+          target_commitish: ${{ steps.release-commit.outputs.sha }}
           draft: false
           prerelease: ${{ contains(inputs.version, '-') }}
           generate_release_notes: true
+          files: ${{ steps.release-artifacts.outputs.files }}
 
-      - name: Bump to next SNAPSHOT version
-        if: ${{ inputs.bump-snapshot && inputs.create-tag }}
+      - name: Compute next SNAPSHOT version
+        if: ${{ inputs.bump-snapshot }}
+        id: bump
         shell: bash
         run: |
           set -euo pipefail
-          IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
-          NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
-          echo "Bumping to next development version: ${NEXT_VERSION}"
-          if [ "${{ inputs.version-property }}" = "revision" ]; then
-            sed -i "s|<revision>.*</revision>|<revision>${NEXT_VERSION}</revision>|" "${{ inputs.pom-file }}"
+          if [ -n "${{ inputs.next-snapshot-version }}" ]; then
+            NEXT_VERSION="${{ inputs.next-snapshot-version }}"
           else
-            if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then
-              MVN="./mvnw"
-            else
-              MVN="mvn"
-            fi
-            $MVN -ntp versions:set -DnewVersion="${NEXT_VERSION}" -DgenerateBackupPoms=false
+            IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
+            patch="${patch%%-*}"
+            NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
           fi
-          git add -A
-          git commit -m "chore: bump development version to ${NEXT_VERSION}"
-          git push origin HEAD:main
+          echo "next-version=${NEXT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Next SNAPSHOT version: ${NEXT_VERSION}"
+
+      - name: Apply next SNAPSHOT version
+        if: ${{ inputs.bump-snapshot }}
+        uses: ./.github/actions/set-project-version
+        with:
+          version: ${{ steps.bump.outputs.next-version }}
+          expected-version: ${{ steps.bump.outputs.next-version }}
+          version-property: ${{ inputs.version-property }}
+          pom-file: ${{ inputs.pom-file }}
+          working-directory: ${{ inputs.working-directory }}
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+
+      - name: Commit next SNAPSHOT version
+        if: ${{ inputs.bump-snapshot }}
+        id: snapshot-commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t POM_FILES < <(git diff --name-only | grep -E '(^|/)pom\.xml$' || true)
+          if [ "${#POM_FILES[@]}" -eq 0 ]; then
+            echo "::warning::No pom.xml changes after SNAPSHOT bump; skipping commit"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git add "${POM_FILES[@]}"
+          git commit -m "chore: bump development version to ${{ steps.bump.outputs.next-version }}"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push SNAPSHOT bump to default branch
+        if: ${{ inputs.bump-snapshot && steps.snapshot-commit.outputs.committed == 'true' }}
+        shell: bash
+        env:
+          BRANCH: ${{ steps.default-branch.outputs.name }}
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:refs/heads/${BRANCH}"

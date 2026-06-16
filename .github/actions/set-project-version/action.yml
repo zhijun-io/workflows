@@ -1,17 +1,25 @@
 name: Set project version
-description: Set release version via mvn versions:set or <revision> property (flatten-friendly)
+description: Set version via mvn versions:set or <revision> in properties; optionally verify POM matches expected-version
 inputs:
   version:
     description: Target version (e.g. 0.1.0 or 0.2.0-SNAPSHOT)
     required: true
-  version-property:
-    description: project-version (versions:set) or revision (<revision> in pom.xml)
+  expected-version:
+    description: When set, verify POM version matches after update
     required: false
-    default: 'project-version'
+    default: ''
+  version-property:
+    description: auto, project-version (versions:set), or revision (<revision> in pom.xml properties)
+    required: false
+    default: 'auto'
   pom-file:
-    description: Path to root POM for revision updates
+    description: POM file name or path relative to working-directory
     required: false
     default: 'pom.xml'
+  working-directory:
+    description: Maven project root directory
+    required: false
+    default: '.'
   use-maven-wrapper:
     description: Prefer ./mvnw for versions:set when available
     required: false
@@ -20,22 +28,71 @@ runs:
   using: composite
   steps:
     - shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
         VERSION="${{ inputs.version }}"
+        EXPECTED="${{ inputs.expected-version }}"
         POM="${{ inputs.pom-file }}"
-        if [ "${{ inputs.version-property }}" = "revision" ]; then
-          if ! grep -q '<revision>' "$POM"; then
-            echo "ERROR: <revision> not found in ${POM}"
+        MODE="${{ inputs.version-property }}"
+
+        resolve_mvn() {
+          local mvn="mvn"
+          if [ "${{ inputs.use-maven-wrapper }}" = "true" ]; then
+            if [ -f ./mvnw ]; then
+              mvn="./mvnw"
+            elif [ -n "${GITHUB_WORKSPACE:-}" ] && [ -f "${GITHUB_WORKSPACE}/mvnw" ]; then
+              mvn="${GITHUB_WORKSPACE}/mvnw"
+            fi
+          fi
+          echo "$mvn"
+        }
+
+        has_revision_in_properties() {
+          sed -n '/<properties>/,/<\/properties>/p' "$1" | grep -q '<revision>'
+        }
+
+        read_revision_from_properties() {
+          sed -n '/<properties>/,/<\/properties>/ s:.*<revision>\([^<]*\)</revision>.*:\1:p' "$1" | head -n1
+        }
+
+        if [ "$MODE" = "auto" ]; then
+          if has_revision_in_properties "$POM"; then
+            MODE="revision"
+          else
+            MODE="project-version"
+          fi
+          echo "Auto-detected version mode: ${MODE}"
+        fi
+
+        if [ "$MODE" = "revision" ]; then
+          if ! has_revision_in_properties "$POM"; then
+            echo "::error::version-property=revision but <revision> not found in <properties> of ${POM}. Use version-property: project-version or add <revision> to properties."
             exit 1
           fi
-          sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" "$POM"
-          echo "Set <revision> to ${VERSION} in ${POM}"
+          sed -i '/<properties>/,/<\/properties>/ s|<revision>[^<]*</revision>|<revision>'"${VERSION}"'</revision>|' "$POM"
+          echo "Set <revision> to ${VERSION} in ${POM} properties"
         else
-          if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then
-            MVN="./mvnw"
+          MVN="$(resolve_mvn)"
+          $MVN -ntp org.codehaus.mojo:versions-maven-plugin:2.17.1:set \
+            -DnewVersion="${VERSION}" -DgenerateBackupPoms=false -DprocessAllModules=true -f "$POM"
+          echo "Set project version to ${VERSION} via versions:set"
+        fi
+
+        if [ -n "$EXPECTED" ]; then
+          if [ "$MODE" = "revision" ]; then
+            ACTUAL="$(read_revision_from_properties "$POM")"
           else
-            MVN="mvn"
+            MVN="$(resolve_mvn)"
+            ACTUAL="$($MVN -ntp help:evaluate -Dexpression=project.version -q -DforceStdout -f "$POM")"
           fi
-          $MVN -ntp versions:set -DnewVersion="${VERSION}" -DgenerateBackupPoms=false
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::Could not determine project version from ${POM}"
+            exit 1
+          fi
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Project version ${ACTUAL} does not match expected ${EXPECTED}"
+            exit 1
+          fi
+          echo "Verified project version ${ACTUAL} matches expected ${EXPECTED}"
         fi
