@@ -56,7 +56,7 @@ runs:
           SKIP_ARGS="-DskipTests"
         fi
         GPG_ARGS=()
-        GPG_PASS="${MAVEN_MAVEN_GPG_PASSPHRASE:-${MAVEN_GPG_PASSPHRASE:-}}"
+        GPG_PASS="${MAVEN_GPG_PASSPHRASE:-${MAVEN_GPG_PASSPHRASE:-}}"
         if [ -n "$GPG_PASS" ]; then
           GPG_ARGS=(-Dgpg.use.agent=false -Dgpg.arg=--pinentry-mode -Dgpg.arg=loopback "-Dgpg.passphrase=${GPG_PASS}")
         fi
