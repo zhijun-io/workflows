@@ -282,6 +282,7 @@ Check publish status in GitHub Actions logs and https://central.sonatype.com/.
 |-------|--------------|-----|
 | `401 Unauthorized` | Wrong Maven credentials | Re-login to Central Portal; update `MAVEN_USERNAME` / `MAVEN_PASSWORD` |
 | `gpg: signing failed: No secret key` | Invalid `GPG_SECRET_KEY` | Use armored format with `BEGIN/END PGP PRIVATE KEY`; copy full key including newlines |
+| `Inappropriate ioctl for device` / loopback errors | CI pinentry / agent mismatch | `setup-java` `gpg-passphrase` must be env var **name** (`GPG_PASSPHRASE`), not the secret value; set `env.GPG_PASSPHRASE`; `run-maven` uses loopback + `-Dgpg.use.agent=false` |
 | `403 Forbidden` | No publish permission | Verify Sonatype account; confirm `groupId` is registered to your namespace |
 
 ### Security
