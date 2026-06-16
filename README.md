@@ -10,15 +10,13 @@ workflows/
 │   ├── workflows/
 │   │   ├── maven-ci.yml
 │   │   ├── maven-snapshot.yml
-│   │   ├── maven-release.yml
-│   │   └── dogfood.yml                 # CI self-test via test-project/
+│   │   └── maven-release.yml
 │   ├── actions/
 │   │   ├── run-maven/                  # mvn / mvnw + profiles, GPG
 │   │   └── set-project-version/        # versions:set or <revision> (auto)
 │   ├── community-projects.yml
 │   └── project.yml.template
 ├── examples/rose/                      # Rose integration samples
-├── test-project/                       # Minimal Maven project for dogfood
 └── zhijun-io-release.py
 ```
 
@@ -83,6 +81,8 @@ on:
 
 jobs:
   release:
+    permissions:
+      contents: write
     uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
     with:
       version: ${{ inputs.version }}
@@ -113,10 +113,9 @@ JDK setup uses [`actions/setup-java@v4`](https://github.com/actions/setup-java) 
 | `java-distribution` | `temurin` | CI, snapshot, release |
 | `use-maven-wrapper` | `true` | CI, snapshot, release |
 | `skip-tests` | `false` | CI, snapshot, release |
-| `maven-profiles` | *(empty)* | CI, snapshot, release |
+| `maven-profiles` | *(empty)* | CI, snapshot, release (verify and deploy) |
 | `maven-extra-args` | `-B -ntp` | CI, snapshot, release |
 | `maven-server-id` | `central` | snapshot, release |
-| `deploy-profile` | `release` | snapshot, release |
 
 ### CI (`maven-ci.yml`)
 
@@ -126,9 +125,8 @@ jobs:
     uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
     with:
       java-version: '21'
-      staged-ci: false          # true → clean validate test verify in one mvn run
       maven-goals: clean verify
-      maven-profiles: ''        # e.g. coverage
+      # maven-profiles: your-profile   # only if defined in your POM
       upload-test-results: true
       upload-coverage: false
       run-sonar: false
@@ -138,8 +136,7 @@ jobs:
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| `staged-ci` | `false` | Run `clean validate test verify` in one Maven invocation |
-| `maven-goals` | `clean verify` | Goals when `staged-ci` is false |
+| `maven-goals` | `clean verify` | Maven goals to run |
 | `upload-test-results` | `true` | Upload Surefire/Failsafe reports |
 | `upload-coverage` | `false` | Upload JaCoCo site/exec artifacts |
 | `run-sonar` | `false` | SonarCloud scan (Java 11+; skips Java 8 / 1.8 / 8.0) |
@@ -154,8 +151,7 @@ jobs:
   publish:
     uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
     with:
-      maven-profiles: coverage
-      deploy-profile: release
+      maven-profiles: release   # if Central/GPG plugins live in release profile
       verify-first: true
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
@@ -172,16 +168,17 @@ GPG secrets are optional but required for signed Central deployments.
 
 ### Maven Central Release (`maven-release.yml`)
 
-Set version → verify → deploy → GitHub Release → bump next SNAPSHOT.
+Set version → **commit release** → verify → deploy → **push release commit** → GitHub Release (tag) → bump next SNAPSHOT → push bump.
 
 ```yaml
 jobs:
   release:
+    permissions:
+      contents: write   # required: push commits, create GitHub Release
     uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
     with:
       version: ${{ inputs.version }}
-      maven-profiles: coverage
-      deploy-profile: release
+      maven-profiles: release   # if Central/GPG plugins live in release profile
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -194,12 +191,26 @@ jobs:
 | `version` | *(required)* | Release version (not SNAPSHOT) |
 | `version-property` | `auto` | `auto`, `project-version`, or `revision` |
 | `pom-file` | `pom.xml` | POM path relative to working-directory |
-| `create-tag` | `true` | Create GitHub Release and tag |
+| `create-tag` | `true` | Create GitHub Release and tag on the **release commit** |
 | `tag-prefix` | `v` | Tag prefix (e.g. `v0.1.0`) |
-| `bump-snapshot` | `true` | Commit next SNAPSHOT after release |
+| `bump-snapshot` | `true` | Commit next SNAPSHOT after release (independent of `create-tag`) |
 | `next-snapshot-version` | *(empty)* | Override patch+1 SNAPSHOT bump |
 
-Release checks out the repository default branch (`gh repo view … defaultBranchRef`) and pushes the post-release SNAPSHOT bump to that branch.
+**Default branch only:** always checks out the repository default branch (`gh repo view … defaultBranchRef`), regardless of which branch triggered `workflow_dispatch`. Only run release from default branch when it matches what you intend to ship.
+
+**Git flow:** the release commit contains the exact version published to Central; the tag (`create-tag: true`) points to that commit via `target_commitish`. With `bump-snapshot: false`, default branch stays on the release version until you bump manually.
+
+**Caller permissions:** the calling job must grant `contents: write` (see example above). Repositories with read-only default `GITHUB_TOKEN` will fail on push or GitHub Release.
+
+### Release partial failures
+
+| Failed after… | Central | Git default branch | Tag / Release | Remediation |
+|---------------|---------|-------------------|---------------|-------------|
+| verify | — | unchanged | — | Fix build; re-run |
+| deploy | maybe published | release commit not pushed | — | Check Central; do not re-deploy same version — fix and release next patch |
+| push release commit | published | unchanged | — | Manually push the release commit or revert Central if unpublished |
+| GitHub Release | published | release commit pushed | missing | Create tag/release manually at the release commit SHA |
+| SNAPSHOT bump / push | published | stuck on release version | tag OK | Manually bump POM to next `-SNAPSHOT` and push |
 
 ## Versioning
 
@@ -226,14 +237,10 @@ Optionally add `flatten-maven-plugin` for CI-friendly installed POMs (Rose patte
 
 | Action | Purpose |
 |--------|---------|
-| `run-maven` | Run `mvn` / `mvnw` with profiles, threads, skipTests, extra-args |
+| `run-maven` | Run `mvn` / `mvnw` with profiles, skipTests, extra-args |
 | `set-project-version` | `versions:set` or `<revision>` (auto-detect); optional `expected-version` verify |
 
 Release SNAPSHOT/semver input checks run inline in `maven-release.yml`.
-
-## Dogfood
-
-`test-project/` and `.github/workflows/dogfood.yml` exercise reusable CI on workflow changes.
 
 ## Secrets
 
@@ -294,10 +301,10 @@ Check publish status in GitHub Actions logs and https://central.sonatype.com/.
 ## POM Requirements
 
 1. Maven wrapper (`./mvnw`) or `use-maven-wrapper: false`
-2. `release` profile with Central publishing plugin, GPG, sources, javadoc
+2. `release` profile with Central publishing plugin, GPG, sources, javadoc — pass `maven-profiles: release` in snapshot/release workflows when plugins are profile-scoped
 3. `maven-enforcer-plugin` with `requireReleaseDeps` (blocks SNAPSHOT dependencies during `verify`)
 
-Example enforcer (see `test-project/pom.xml`):
+Example enforcer:
 
 ```xml
 <plugin>
@@ -364,15 +371,17 @@ Example `release` profile:
 
 | Project | Path | Notes |
 |---------|------|-------|
-| Rose | [examples/rose/](examples/rose/) | Java 8, `${revision}`, `staged-ci` + `maven-profiles: coverage` |
+| Rose | [examples/rose/](examples/rose/) | Java 8, `${revision}`, no mvnw |
 
 ## Breaking Changes (recent)
 
+- Removed **`staged-ci`** (use `maven-goals: clean verify` instead)
 - `verify-profiles` → **`maven-profiles`**
 - SNAPSHOT deps → **`maven-enforcer-plugin`** in consumer POM
 - JDK → **`actions/setup-java@v4`** (removed `setup-maven`)
 - Version verify → **`set-project-version`** `expected-version` (removed `validate-release-version`)
 - `version-property` default → **`auto`**
 - Sonar → `run-sonar` + `SONAR_TOKEN`
-- Release tag → GitHub Release action (no separate git push)
+- Release → commits release version before deploy; tag via GitHub Release `target_commitish`; `bump-snapshot` independent of `create-tag`
+- Removed **`deploy-profile`** — use **`maven-profiles`** for both verify and deploy (e.g. `release`)
 - Removed inputs: `maven-threads`, `bump-type`, `java-version-matrix`, custom artifact paths, `default-branch`

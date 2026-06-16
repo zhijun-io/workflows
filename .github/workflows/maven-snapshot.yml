@@ -40,7 +40,7 @@ on:
         type: boolean
         default: true
       maven-profiles:
-        description: 'Optional Maven profile(s) for verify (comma-separated)'
+        description: 'Optional Maven profile(s) for verify and deploy (comma-separated)'
         required: false
         type: string
         default: ''
@@ -49,11 +49,6 @@ on:
         required: false
         type: string
         default: 'central'
-      deploy-profile:
-        description: 'Maven profile for deploy (empty to skip -P)'
-        required: false
-        type: string
-        default: 'release'
       maven-extra-args:
         description: 'Extra Maven CLI arguments (default -B -ntp)'
         required: false
@@ -110,7 +105,7 @@ jobs:
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: true
-          maven-profiles: ${{ inputs.deploy-profile }}
+          maven-profiles: ${{ inputs.maven-profiles }}
           extra-args: ${{ inputs.maven-extra-args }}
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}

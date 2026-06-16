@@ -3,12 +3,10 @@
 # Minimal:
 #   uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
 #
-# With project-specific Maven profile (e.g. Rose):
+# With optional Maven profile(s) defined in your POM:
 #   with:
 #     java-version: '8'
-#     staged-ci: true
-#     maven-profiles: coverage
-#     upload-coverage: true
+#     maven-profiles: your-profile
 
 name: Maven CI
 
@@ -35,13 +33,8 @@ on:
         required: false
         type: boolean
         default: true
-      staged-ci:
-        description: 'Run clean, validate, test, verify in one Maven invocation'
-        required: false
-        type: boolean
-        default: false
       maven-goals:
-        description: 'Maven goals when staged-ci is false'
+        description: 'Maven goals (e.g. clean verify)'
         required: false
         type: string
         default: 'clean verify'
@@ -109,7 +102,7 @@ jobs:
         uses: ./.github/actions/run-maven
         with:
           working-directory: ${{ inputs.working-directory }}
-          goals: ${{ inputs.staged-ci && 'clean validate test verify' || inputs.maven-goals }}
+          goals: ${{ inputs.maven-goals }}
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
           skip-tests: ${{ inputs.skip-tests }}
           maven-profiles: ${{ inputs.maven-profiles }}
