@@ -167,7 +167,7 @@ jobs:
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Set version
-        uses: ./.github/actions/set-project-version
+        uses: zhijun-io/workflows/.github/actions/set-project-version@main
         with:
           version: ${{ inputs.version }}
           expected-version: ${{ inputs.version }}
@@ -193,7 +193,7 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build and verify
-        uses: ./.github/actions/run-maven
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
           working-directory: ${{ inputs.working-directory }}
           goals: clean verify
@@ -203,7 +203,7 @@ jobs:
           extra-args: ${{ inputs.maven-extra-args }}
 
       - name: Publish release to Maven Central
-        uses: ./.github/actions/run-maven
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
           working-directory: ${{ inputs.working-directory }}
           goals: deploy
@@ -279,7 +279,7 @@ jobs:
 
       - name: Apply next SNAPSHOT version
         if: ${{ inputs.bump-snapshot }}
-        uses: ./.github/actions/set-project-version
+        uses: zhijun-io/workflows/.github/actions/set-project-version@main
         with:
           version: ${{ steps.bump.outputs.next-version }}
           expected-version: ${{ steps.bump.outputs.next-version }}

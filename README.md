@@ -364,22 +364,3 @@ Example `release` profile:
   </build>
 </profile>
 ```
-
-## Examples & Projects
-
-| Project | Path | Notes |
-|---------|------|-------|
-| Rose | [examples/rose/](examples/rose/) | Java 8, `${revision}`, no mvnw |
-
-## Breaking Changes (recent)
-
-- Removed **`staged-ci`** (use `maven-goals: clean verify` instead)
-- `verify-profiles` → **`maven-profiles`**
-- SNAPSHOT deps → **`maven-enforcer-plugin`** in consumer POM
-- JDK → **`actions/setup-java@v4`** (removed `setup-maven`)
-- Version verify → **`set-project-version`** `expected-version` (removed `validate-release-version`)
-- `version-property` default → **`auto`**
-- Sonar → `run-sonar` + `SONAR_TOKEN`
-- Release → commits release version before deploy; tag via GitHub Release `target_commitish`; `bump-snapshot` independent of `create-tag`
-- Removed **`deploy-profile`** — use **`maven-profiles`** for both verify and deploy (e.g. `release`)
-- Removed inputs: `maven-threads`, `bump-type`, `java-version-matrix`, custom artifact paths, `default-branch`

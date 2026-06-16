@@ -99,7 +99,7 @@ jobs:
           cache-dependency-path: ${{ inputs.working-directory == '.' && '**/pom.xml' || format('{0}/**/pom.xml', inputs.working-directory) }}
 
       - name: Build with Maven
-        uses: ./.github/actions/run-maven
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
           working-directory: ${{ inputs.working-directory }}
           goals: ${{ inputs.maven-goals }}

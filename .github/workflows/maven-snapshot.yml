@@ -89,7 +89,7 @@ jobs:
 
       - name: Build and verify
         if: ${{ inputs.verify-first }}
-        uses: ./.github/actions/run-maven
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
           working-directory: ${{ inputs.working-directory }}
           goals: clean verify
@@ -99,7 +99,7 @@ jobs:
           extra-args: ${{ inputs.maven-extra-args }}
 
       - name: Publish snapshot
-        uses: ./.github/actions/run-maven
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
           working-directory: ${{ inputs.working-directory }}
           goals: deploy
