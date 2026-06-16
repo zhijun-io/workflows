@@ -199,7 +199,7 @@ jobs:
           working-directory: ${{ inputs.working-directory }}
           goals: deploy
           use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: true
+          skip-tests: ${{ inputs.skip-tests }}
           maven-profiles: ${{ inputs.maven-profiles }}
           threads: 1C
           extra-args: ${{ inputs.maven-extra-args }}

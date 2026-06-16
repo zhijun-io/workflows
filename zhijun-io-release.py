@@ -36,6 +36,8 @@ PROJECTS = {
     },
 }
 
+VERSION_PATTERN = re.compile(r'^\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$')
+
 
 @dataclass
 class ReleaseConfig:
@@ -87,13 +89,13 @@ class ReleaseConfig:
         if len(parts) != 3:
             return f"{self.target_version}-SNAPSHOT"
         major, minor, patch = parts
+        patch = patch.split('-', 1)[0]
         next_patch = str(int(patch) + 1)
         return f"{major}.{minor}.{next_patch}-SNAPSHOT"
 
     def validate_version(self) -> bool:
         """Validate version format: X.Y.Z or X.Y.Z-suffix"""
-        pattern = r'^\d+\.\d+\.\d+(-[A-Za-z0-9]+)?$'
-        return bool(re.match(pattern, self.target_version))
+        return bool(VERSION_PATTERN.match(self.target_version))
 
 
 class Colors:
@@ -331,7 +333,7 @@ class GitHubActionsHelper:
         """Trigger the release workflow on GitHub"""
         try:
             cmd = [
-                'gh', 'workflow', 'run', 'release.yml',
+                'gh', 'workflow', 'run', 'maven-release.yml',
                 '--repo', self.config.repo,
                 '--ref', self.config.tag_name,
                 '-f', f'version={self.config.target_version}'
@@ -484,7 +486,7 @@ class ReleaseWorkflow:
 
         if self.config.trigger_workflow:
             steps.append(("Trigger GitHub release workflow", self._trigger_workflow, [
-                f"gh workflow run release.yml --repo {self.config.repo} -f version={self.config.target_version}",
+                f"gh workflow run maven-release.yml --repo {self.config.repo} -f version={self.config.target_version}",
             ]))
 
         completed_steps = []
