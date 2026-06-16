@@ -44,8 +44,8 @@ jobs:
     with:
       java-version: '8'
       use-maven-wrapper: false
-      verify-profiles: coverage
-      release-profile: true
+      maven-profiles: coverage
+      deploy-profile: release
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}

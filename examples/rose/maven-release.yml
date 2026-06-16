@@ -16,10 +16,9 @@ jobs:
     uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
     with:
       version: ${{ inputs.version }}
-      version-property: revision
       java-version: '8'
       use-maven-wrapper: false
-      verify-profiles: coverage
+      maven-profiles: coverage
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
