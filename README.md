@@ -142,6 +142,19 @@ jobs:
 
 SonarCloud uses `https://sonarcloud.io`, org = GitHub owner, project key = repository name. Override in `sonar-project.properties` if needed.
 
+When `run-sonar: true`, the **calling job** must also grant `pull-requests: read` (for PR decoration):
+
+```yaml
+jobs:
+  build:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
+    with:
+      run-sonar: true
+```
+
 ### Publish Snapshot (`maven-snapshot.yml`)
 
 ```yaml
