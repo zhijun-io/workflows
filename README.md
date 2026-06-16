@@ -61,8 +61,8 @@ jobs:
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 ```
 
 ### 3. Maven Central release
@@ -87,8 +87,8 @@ jobs:
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 ```
 
 ### Release script
@@ -154,8 +154,8 @@ jobs:
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 ```
 
 | Input | Default | Description |
@@ -180,8 +180,8 @@ jobs:
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 ```
 
 | Input | Default | Description |
@@ -248,8 +248,8 @@ Configure at **organization** or **repository** level: Settings → Secrets and 
 |--------|--------------|-------------|
 | `MAVEN_USERNAME` | Snapshot, Release | Sonatype Central Portal username — [central.sonatype.com](https://central.sonatype.com/) |
 | `MAVEN_PASSWORD` | Snapshot, Release | Sonatype Central Portal token (not account password) |
-| `GPG_SECRET_KEY` | Signed publish / Release | ASCII-armored GPG private key |
-| `GPG_PASSPHRASE` | Signed publish / Release | GPG key passphrase |
+| `MAVEN_GPG_PRIVATE_KEY` | Signed publish / Release | ASCII-armored GPG private key |
+| `MAVEN_GPG_PASSPHRASE` | Signed publish / Release | GPG key passphrase |
 | `SONAR_TOKEN` | CI Sonar (`run-sonar: true`) | SonarCloud token |
 
 ### Setup
@@ -261,7 +261,7 @@ Configure at **organization** or **repository** level: Settings → Secrets and 
 gpg --full-generate-key
 gpg --list-secret-keys --keyid-format LONG
 gpg --armor --export-secret-keys KEY_ID > private-key.asc
-# Entire private-key.asc → GPG_SECRET_KEY secret
+# Entire private-key.asc → MAVEN_GPG_PRIVATE_KEY secret
 ```
 
 3. **Add secrets in GitHub** — Settings → Secrets and variables → Actions → New repository secret (or org-level for all repos).
@@ -281,8 +281,8 @@ Check publish status in GitHub Actions logs and https://central.sonatype.com/.
 | Error | Likely cause | Fix |
 |-------|--------------|-----|
 | `401 Unauthorized` | Wrong Maven credentials | Re-login to Central Portal; update `MAVEN_USERNAME` / `MAVEN_PASSWORD` |
-| `gpg: signing failed: No secret key` | Invalid `GPG_SECRET_KEY` | Use armored format with `BEGIN/END PGP PRIVATE KEY`; copy full key including newlines |
-| `Inappropriate ioctl for device` / loopback errors | CI pinentry / agent mismatch | `setup-java` `gpg-passphrase` must be env var **name** (`GPG_PASSPHRASE`), not the secret value; set `env.GPG_PASSPHRASE`; `run-maven` uses loopback + `-Dgpg.use.agent=false` |
+| `gpg: signing failed: No secret key` | Invalid `MAVEN_GPG_PRIVATE_KEY` | Use armored format with `BEGIN/END PGP PRIVATE KEY`; copy full key including newlines |
+| `Inappropriate ioctl for device` / loopback errors | CI pinentry / agent mismatch | `setup-java` `gpg-passphrase` must be env var **name** (`MAVEN_GPG_PASSPHRASE`), not the secret value; set `env.MAVEN_GPG_PASSPHRASE`; `run-maven` uses loopback + `-Dgpg.use.agent=false` |
 | `403 Forbidden` | No publish permission | Verify Sonatype account; confirm `groupId` is registered to your namespace |
 
 ### Security

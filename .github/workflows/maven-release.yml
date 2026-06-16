@@ -97,10 +97,10 @@ on:
       MAVEN_PASSWORD:
         description: 'Maven Central password / Portal token'
         required: true
-      GPG_SECRET_KEY:
+      MAVEN_GPG_PRIVATE_KEY:
         description: 'GPG private key for signing'
         required: true
-      GPG_PASSPHRASE:
+      MAVEN_GPG_PASSPHRASE:
         description: 'GPG passphrase'
         required: true
 
@@ -155,7 +155,7 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_MAVEN_GPG_PASSPHRASE }}
         with:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distribution }}
@@ -164,8 +164,8 @@ jobs:
           server-id: ${{ inputs.maven-server-id }}
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
-          gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
-          gpg-passphrase: GPG_PASSPHRASE
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_MAVEN_GPG_PASSPHRASE
 
       - name: Set version
         uses: zhijun-io/workflows/.github/actions/set-project-version@main
@@ -193,18 +193,6 @@ jobs:
           git commit -m "chore: release version ${{ inputs.version }}"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and verify
-        uses: zhijun-io/workflows/.github/actions/run-maven@main
-        with:
-          working-directory: ${{ inputs.working-directory }}
-          goals: clean verify
-          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
-          skip-tests: ${{ inputs.skip-tests }}
-          maven-profiles: ${{ inputs.maven-profiles }}
-          extra-args: ${{ inputs.maven-extra-args }}
-        env:
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
       - name: Publish release to Maven Central
         uses: zhijun-io/workflows/.github/actions/run-maven@main
         with:
@@ -218,7 +206,7 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_MAVEN_GPG_PASSPHRASE }}
 
       - name: Push release commit to default branch
         shell: bash
