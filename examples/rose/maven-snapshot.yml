@@ -7,9 +7,42 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/*.md'
+      - '.github/*.yml'
+      - '.github/*.yaml'
+
+concurrency:
+  group: maven-snapshot-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  check-snapshot-version:
+    runs-on: ubuntu-24.04
+    outputs:
+      is_snapshot: ${{ steps.revision.outputs.is_snapshot }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect SNAPSHOT revision
+        id: revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          REVISION="$(grep -m1 '<revision>' pom.xml | sed 's|.*<revision>\(.*\)</revision>.*|\1|')"
+          echo "revision=${REVISION}"
+          if [[ "${REVISION}" == *-SNAPSHOT ]]; then
+            echo "is_snapshot=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "is_snapshot=false" >> "${GITHUB_OUTPUT}"
+          fi
+
   publish:
+    needs: check-snapshot-version
+    if: needs.check-snapshot-version.outputs.is_snapshot == 'true'
     uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
     with:
       java-version: '8'
