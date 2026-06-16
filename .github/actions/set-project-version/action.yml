@@ -1,0 +1,41 @@
+name: Set project version
+description: Set release version via mvn versions:set or <revision> property (flatten-friendly)
+inputs:
+  version:
+    description: Target version (e.g. 0.1.0 or 0.2.0-SNAPSHOT)
+    required: true
+  version-property:
+    description: project-version (versions:set) or revision (<revision> in pom.xml)
+    required: false
+    default: 'project-version'
+  pom-file:
+    description: Path to root POM for revision updates
+    required: false
+    default: 'pom.xml'
+  use-maven-wrapper:
+    description: Prefer ./mvnw for versions:set when available
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        VERSION="${{ inputs.version }}"
+        POM="${{ inputs.pom-file }}"
+        if [ "${{ inputs.version-property }}" = "revision" ]; then
+          if ! grep -q '<revision>' "$POM"; then
+            echo "ERROR: <revision> not found in ${POM}"
+            exit 1
+          fi
+          sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" "$POM"
+          echo "Set <revision> to ${VERSION} in ${POM}"
+        else
+          if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then
+            MVN="./mvnw"
+          else
+            MVN="mvn"
+          fi
+          $MVN -ntp versions:set -DnewVersion="${VERSION}" -DgenerateBackupPoms=false
+        fi

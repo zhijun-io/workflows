@@ -1,0 +1,51 @@
+name: Run Maven
+description: Run Maven goals with optional wrapper, profiles, and threading
+inputs:
+  goals:
+    description: Maven goals (e.g. clean verify)
+    required: true
+  use-maven-wrapper:
+    description: Use ./mvnw when present; otherwise mvn
+    required: false
+    default: 'true'
+  skip-tests:
+    description: Append -DskipTests
+    required: false
+    default: 'false'
+  maven-profiles:
+    description: Maven profile id(s) for -P (no spaces)
+    required: false
+    default: ''
+  extra-args:
+    description: Extra Maven CLI arguments
+    required: false
+    default: '-B -ntp'
+  threads:
+    description: Maven -T thread count (empty to omit)
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then
+          MVN="./mvnw"
+        else
+          MVN="mvn"
+        fi
+        PROFILE_ARGS=""
+        if [ -n "${{ inputs.maven-profiles }}" ]; then
+          PROFILE_ARGS="-P${{ inputs.maven-profiles }}"
+        fi
+        THREAD_ARGS=""
+        if [ -n "${{ inputs.threads }}" ]; then
+          THREAD_ARGS="-T${{ inputs.threads }}"
+        fi
+        SKIP_ARGS=""
+        if [ "${{ inputs.skip-tests }}" = "true" ]; then
+          SKIP_ARGS="-DskipTests"
+        fi
+        # shellcheck disable=SC2086
+        $MVN ${{ inputs.goals }} ${{ inputs.extra-args }} ${PROFILE_ARGS} ${THREAD_ARGS} ${SKIP_ARGS}

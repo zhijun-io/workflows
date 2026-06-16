@@ -8,12 +8,13 @@ Shared infrastructure for ZhiJun IO projects including reusable GitHub Actions w
 workflows/
 ├── .github/
 │   ├── workflows/
-│   │   ├── ci-build.yml                    # Reusable CI workflow (simple projects)
-│   │   ├── ci-build-with-cli.yml           # CI with CLI tools support
-│   │   ├── publish-snapshot.yml            # Snapshot publishing (simple projects)
-│   │   ├── publish-snapshot-with-cli.yml   # Snapshot with CLI tools support
-│   │   ├── maven-central-release.yml       # Release workflow (simple projects)
-│   │   └── maven-central-release-with-cli.yml # Release with CLI tools support
+│   │   ├── maven-ci.yml
+│   │   ├── maven-snapshot.yml
+│   │   └── maven-release.yml
+│   ├── actions/
+│   │   ├── run-maven/                        # Composite: mvn / mvnw
+│   │   ├── set-project-version/              # versions:set or <revision>
+│   │   └── verify-no-snapshot-versions/
 │   ├── community-projects.yml              # Project registry
 │   └── project.yml.template                # Template for project config
 ├── examples/                               # Example configurations
@@ -26,9 +27,9 @@ workflows/
 
 ### For New Projects
 
-1. **Add CI workflow** (`.github/workflows/ci.yml`):
+1. **Add CI workflow** (`.github/workflows/maven-ci.yml`):
 ```yaml
-name: CI Build
+name: Maven CI
 on:
   push:
     branches: [main]
@@ -37,27 +38,27 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
 ```
 
-2. **Add snapshot publishing** (`.github/workflows/publish-snapshot.yml`):
+2. **Add snapshot publishing** (`.github/workflows/maven-snapshot.yml`):
 ```yaml
-name: Publish Snapshot
+name: Maven Publish Snapshot
 on:
   push:
     branches: [main]
 
 jobs:
   publish:
-    uses: zhijun-io/workflows/.github/workflows/publish-snapshot.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
 ```
 
-3. **Add release workflow** (`.github/workflows/release.yml`):
+3. **Add release workflow** (`.github/workflows/maven-release.yml`):
 ```yaml
-name: Release
+name: Maven Central Release
 on:
   workflow_dispatch:
     inputs:
@@ -67,7 +68,7 @@ on:
 
 jobs:
   release:
-    uses: zhijun-io/workflows/.github/workflows/release.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
     with:
       version: ${{ inputs.version }}
     secrets:
@@ -75,89 +76,16 @@ jobs:
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
       GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
       GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-```
-
-### For Projects Requiring CLI Tools (agent-client, etc.)
-
-Projects that need CLI tools (Claude, Gemini, Vendir) for integration tests should use the `-with-cli` variants:
-
-1. **CI with CLI tools** (`.github/workflows/ci.yml`):
-```yaml
-name: CI Build
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build:
-    uses: zhijun-io/workflows/.github/workflows/ci-with-cli.yml@main
-    with:
-      install-claude-cli: true
-      install-gemini-cli: true
-      install-vendir-cli: true
-      validate-commits: true
-    secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-```
-
-2. **Snapshot publishing with CLI tools**:
-```yaml
-name: Publish Snapshot
-on:
-  push:
-    branches: [main]
-
-jobs:
-  publish:
-    uses: zhijun-io/workflows/.github/workflows/publish-snapshot-with-cli.yml@main
-    with:
-      install-claude-cli: true
-      install-gemini-cli: true
-      validate-commits: true
-    secrets:
-      MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-      MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-```
-
-3. **Release with CLI tools**:
-```yaml
-name: Release
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version'
-        required: true
-
-jobs:
-  release:
-    uses: zhijun-io/workflows/.github/workflows/release-with-cli.yml@main
-    with:
-      version: ${{ inputs.version }}
-      install-claude-cli: true
-      install-gemini-cli: true
-    secrets:
-      MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-      MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 ```
 
 ### Release Script
 
 ```bash
 # Dry run
-python3 zhijun-io-release.py agent-sandbox 0.0.1 --dry-run
+python3 zhijun-io-release.py rose 0.1.0 --dry-run
 
 # Actual release
-python3 zhijun-io-release.py agent-sandbox 0.0.1
+python3 zhijun-io-release.py rose 0.1.0
 ```
 
 ## Setting Up Secrets
@@ -172,20 +100,6 @@ Set these at the GitHub organization level (Settings > Secrets and variables > A
 | `MAVEN_PASSWORD` | Sonatype Central Portal token |
 | `GPG_SECRET_KEY` | ASCII-armored GPG private key |
 | `GPG_PASSPHRASE` | GPG key passphrase |
-
-### Repository-Specific Secrets (API Keys)
-
-API keys for CLI tools should be set at the **repository level**, not organization level. This ensures:
-- Each maintainer uses their own API keys
-- Keys are not shared across all org repositories
-- Billing and usage tracking is per-project
-
-Set these at the repository level (Repository Settings > Secrets and variables > Actions):
-
-| Secret | Description | Required By |
-|--------|-------------|-------------|
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude CLI | Projects using Claude CLI |
-| `GEMINI_API_KEY` | Google API key for Gemini CLI | Projects using Gemini CLI |
 
 ### Verifying Maven Central Credentials
 
@@ -204,11 +118,17 @@ gpg --armor --export-secret-keys KEY_ID > private-key.asc
 # The contents of private-key.asc go into GPG_SECRET_KEY secret
 ```
 
+## Examples
+
+| Project | Path | Notes |
+|---------|------|-------|
+| Rose | [examples/rose/](examples/rose/) | Java 8, `${revision}`, `staged-ci` + `coverage` |
+
 ## Projects
 
 | Project | Description | Workflow Type |
 |---------|-------------|---------------|
-| agent-sandbox | Process execution and workspace management | Simple |
+| rose | Spring Boot 2.7 extension platform (`io.zhijun`) | Maven CI / Central release |
 
 ## Documentation
 

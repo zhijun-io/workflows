@@ -1,0 +1,26 @@
+# CI for Rose (Java 8, staged validate/test/verify -Pcoverage)
+# Place at .github/workflows/maven-ci.yml in zhijun-io/rose
+
+name: Maven CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: maven-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
+    with:
+      java-version: '8'
+      use-maven-wrapper: false
+      staged-ci: true
+      verify-profiles: coverage

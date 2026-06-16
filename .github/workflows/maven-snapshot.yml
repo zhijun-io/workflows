@@ -1,0 +1,102 @@
+# Reusable snapshot publishing workflow for ZhiJun IO Maven projects
+#
+# Usage:
+#   uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
+#   secrets: MAVEN_USERNAME, MAVEN_PASSWORD
+
+name: Maven Publish Snapshot
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java-distribution:
+        description: 'Java distribution to use'
+        required: false
+        type: string
+        default: 'temurin'
+      use-maven-wrapper:
+        description: 'Use ./mvnw when present; otherwise mvn'
+        required: false
+        type: boolean
+        default: true
+      skip-tests:
+        description: 'Skip running tests before publish'
+        required: false
+        type: boolean
+        default: false
+      verify-first:
+        description: 'Run verify before deploy'
+        required: false
+        type: boolean
+        default: true
+      verify-profiles:
+        description: 'Maven profile for verify (e.g. coverage)'
+        required: false
+        type: string
+        default: ''
+      release-profile:
+        description: 'Enable -Prelease on deploy (sources, javadoc, GPG)'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      MAVEN_USERNAME:
+        description: 'Maven Central username / Portal token username'
+        required: true
+      MAVEN_PASSWORD:
+        description: 'Maven Central password / Portal token'
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: ${{ inputs.java-distribution }}
+          cache: maven
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: Build and verify
+        if: ${{ inputs.verify-first }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: clean verify
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: ${{ inputs.skip-tests }}
+          maven-profiles: ${{ inputs.verify-profiles }}
+
+      - name: Publish snapshot to Maven Central (release profile)
+        if: ${{ inputs.release-profile }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: deploy
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: true
+          maven-profiles: release
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+
+      - name: Publish snapshot to Maven Central
+        if: ${{ !inputs.release-profile }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: deploy
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: true
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}

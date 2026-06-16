@@ -1,0 +1,129 @@
+# Reusable CI workflow for ZhiJun IO Maven projects
+#
+# Usage:
+#   uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
+#   with:
+#     java-version: '8'
+#     use-maven-wrapper: false
+#     staged-ci: true
+#     verify-profiles: coverage
+
+name: Maven CI
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java-distribution:
+        description: 'Java distribution to use'
+        required: false
+        type: string
+        default: 'temurin'
+      use-maven-wrapper:
+        description: 'Use ./mvnw when present; otherwise mvn'
+        required: false
+        type: boolean
+        default: true
+      maven-goals:
+        description: 'Maven goals when staged-ci is false'
+        required: false
+        type: string
+        default: 'clean verify'
+      staged-ci:
+        description: 'Run validate, test, then verify (Rose-style pipeline)'
+        required: false
+        type: boolean
+        default: false
+      verify-profiles:
+        description: 'Maven profile for final verify step (e.g. coverage)'
+        required: false
+        type: string
+        default: ''
+      maven-threads:
+        description: 'Maven -T for test/verify steps in staged-ci'
+        required: false
+        type: string
+        default: '1'
+      skip-tests:
+        description: 'Skip running tests'
+        required: false
+        type: boolean
+        default: false
+      upload-test-results:
+        description: 'Upload test results as artifact'
+        required: false
+        type: boolean
+        default: true
+      pre-build-script:
+        description: 'Optional shell script to run before Maven (e.g. reclaim disk space)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pre-build script
+        if: ${{ inputs.pre-build-script != '' }}
+        shell: bash
+        run: ${{ inputs.pre-build-script }}
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: ${{ inputs.java-distribution }}
+          cache: maven
+
+      - name: Staged CI (validate / test / verify)
+        if: ${{ inputs.staged-ci }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: validate
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: ${{ inputs.skip-tests }}
+
+      - name: Staged CI — test
+        if: ${{ inputs.staged-ci }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: test
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: ${{ inputs.skip-tests }}
+          threads: ${{ inputs.maven-threads }}
+
+      - name: Staged CI — verify
+        if: ${{ inputs.staged-ci }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: verify
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: ${{ inputs.skip-tests }}
+          maven-profiles: ${{ inputs.verify-profiles }}
+          threads: ${{ inputs.maven-threads }}
+
+      - name: Build with Maven
+        if: ${{ !inputs.staged-ci }}
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: ${{ inputs.maven-goals }}
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: ${{ inputs.skip-tests }}
+
+      - name: Upload test results
+        if: ${{ inputs.upload-test-results && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          retention-days: 7

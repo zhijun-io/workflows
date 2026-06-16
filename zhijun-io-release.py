@@ -6,11 +6,11 @@ Automates releases for ZhiJun IO projects with interactive
 step-by-step confirmation and dry-run support.
 
 Projects Supported:
-- agent-sandbox
+- rose
 
 Usage:
-    python3 zhijun-io-release.py agent-sandbox 0.0.1 --dry-run
-    python3 zhijun-io-release.py agent-sandbox 0.0.1
+    python3 zhijun-io-release.py rose 0.1.0 --dry-run
+    python3 zhijun-io-release.py rose 0.1.0
 """
 
 import os
@@ -28,11 +28,11 @@ from datetime import datetime
 
 # Project configuration
 PROJECTS = {
-    "agent-sandbox": {
-        "repo": "zhijun-io/agent-sandbox",
-        "description": "Sandbox abstraction for secure code execution in AI agent applications",
-        "group_id": "org.springaicommunity",
-        "artifact_id": "agent-sandbox-parent",
+    "rose": {
+        "repo": "zhijun-io/rose",
+        "description": "Spring Boot 2.7 / Java 8 extension platform",
+        "group_id": "io.zhijun",
+        "artifact_id": "rose-parent",
     },
 }
 

@@ -14,14 +14,15 @@ organization: zhijun-io
 default-java-version: "21"
 
 projects:
-  - name: agent-sandbox
-    repo: zhijun-io/agent-sandbox
-    description: "Sandbox abstraction for secure code execution in AI agent applications"
-    artifact-id: agent-sandbox-parent
-    group-id: org.springaicommunity
+  - name: rose
+    repo: zhijun-io/rose
+    description: "Spring Boot 2.7 / Java 8 extension platform"
+    artifact-id: rose-parent
+    group-id: io.zhijun
+    java-version: "8"
+    version-property: revision
     dependencies: []
     integration:
       reusable-workflows: true
       parent-pom: false
       pr-based-releases: false
-

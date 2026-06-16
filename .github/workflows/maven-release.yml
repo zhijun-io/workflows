@@ -1,0 +1,175 @@
+# Reusable Maven Central release workflow for ZhiJun IO projects
+#
+# Usage:
+#   uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
+#   with:
+#     version: '0.1.0'
+#     version-property: revision
+#     java-version: '8'
+#     use-maven-wrapper: false
+
+name: Maven Central Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0)'
+        required: true
+        type: string
+      version-property:
+        description: 'project-version (mvn versions:set) or revision (<revision> property)'
+        required: false
+        type: string
+        default: 'project-version'
+      pom-file:
+        description: 'Root POM path for revision updates'
+        required: false
+        type: string
+        default: 'pom.xml'
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java-distribution:
+        description: 'Java distribution to use'
+        required: false
+        type: string
+        default: 'temurin'
+      use-maven-wrapper:
+        description: 'Use ./mvnw when present; otherwise mvn'
+        required: false
+        type: boolean
+        default: true
+      skip-tests:
+        description: 'Skip running tests'
+        required: false
+        type: boolean
+        default: false
+      verify-profiles:
+        description: 'Maven profile for verify (e.g. coverage)'
+        required: false
+        type: string
+        default: ''
+      create-tag:
+        description: 'Create and push Git tag'
+        required: false
+        type: boolean
+        default: true
+      tag-prefix:
+        description: 'Tag prefix (e.g. v for v0.1.0)'
+        required: false
+        type: string
+        default: 'v'
+      bump-snapshot:
+        description: 'Commit and push next SNAPSHOT development version'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      MAVEN_USERNAME:
+        description: 'Maven Central username / Portal token username'
+        required: true
+      MAVEN_PASSWORD:
+        description: 'Maven Central password / Portal token'
+        required: true
+      GPG_SECRET_KEY:
+        description: 'GPG private key for signing'
+        required: true
+      GPG_PASSPHRASE:
+        description: 'GPG passphrase'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: ${{ inputs.java-distribution }}
+          cache: maven
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Set version
+        uses: zhijun-io/workflows/.github/actions/set-project-version@main
+        with:
+          version: ${{ inputs.version }}
+          version-property: ${{ inputs.version-property }}
+          pom-file: ${{ inputs.pom-file }}
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+
+      - name: Verify no SNAPSHOT versions
+        uses: zhijun-io/workflows/.github/actions/verify-no-snapshot-versions@main
+
+      - name: Build and verify
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: clean verify
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: ${{ inputs.skip-tests }}
+          maven-profiles: ${{ inputs.verify-profiles }}
+
+      - name: Publish release to Maven Central
+        uses: zhijun-io/workflows/.github/actions/run-maven@main
+        with:
+          goals: deploy
+          use-maven-wrapper: ${{ inputs.use-maven-wrapper }}
+          skip-tests: true
+          maven-profiles: release
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Create Git tag
+        if: ${{ inputs.create-tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ inputs.tag-prefix }}${{ inputs.version }} -m "Release ${{ inputs.tag-prefix }}${{ inputs.version }}"
+          git push origin ${{ inputs.tag-prefix }}${{ inputs.version }}
+
+      - name: Create GitHub Release
+        if: ${{ inputs.create-tag }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag-prefix }}${{ inputs.version }}
+          name: ${{ inputs.tag-prefix }}${{ inputs.version }}
+          draft: false
+          prerelease: ${{ contains(inputs.version, '-') }}
+          generate_release_notes: true
+
+      - name: Bump to next SNAPSHOT version
+        if: ${{ inputs.bump-snapshot && inputs.create-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
+          NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
+          echo "Bumping to next development version: ${NEXT_VERSION}"
+          if [ "${{ inputs.version-property }}" = "revision" ]; then
+            sed -i "s|<revision>.*</revision>|<revision>${NEXT_VERSION}</revision>|" "${{ inputs.pom-file }}"
+          else
+            if [ "${{ inputs.use-maven-wrapper }}" = "true" ] && [ -f ./mvnw ]; then
+              MVN="./mvnw"
+            else
+              MVN="mvn"
+            fi
+            $MVN -ntp versions:set -DnewVersion="${NEXT_VERSION}" -DgenerateBackupPoms=false
+          fi
+          git add -A
+          git commit -m "chore: bump development version to ${NEXT_VERSION}"
+          git push origin HEAD:main

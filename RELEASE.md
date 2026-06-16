@@ -8,7 +8,7 @@ The ZhiJun IO maintains several related projects that can benefit from shared re
 
 | Project | Description | Status |
 |---------|-------------|--------|
-| agent-sandbox | Process execution and workspace management | Active |
+| rose | Spring Boot 2.7 / Java 8 extension platform | Active |
 
 ## Integration Tiers
 
@@ -22,7 +22,7 @@ Projects can adopt all, some, or none of the shared tooling:
 
 ## Reusable Workflows
 
-### CI Build (`ci-build.yml`)
+### CI Build (`maven-ci.yml`)
 
 Standard CI workflow for building and testing.
 
@@ -38,7 +38,7 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
     with:
       java-version: '21'
 ```
@@ -65,7 +65,7 @@ on:
 
 jobs:
   publish:
-    uses: zhijun-io/workflows/.github/workflows/publish-snapshot.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-snapshot.yml@main
     secrets:
       MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -80,7 +80,7 @@ jobs:
 - `MAVEN_USERNAME` - Sonatype Portal username
 - `MAVEN_PASSWORD` - Sonatype Portal token
 
-### Maven Central Release (`maven-central-release.yml`)
+### Maven Central Release (`maven-release.yml`)
 
 Full release workflow with GPG signing and tagging.
 
@@ -98,7 +98,7 @@ on:
 
 jobs:
   release:
-    uses: zhijun-io/workflows/.github/workflows/release.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
     with:
       version: ${{ inputs.version }}
     secrets:
@@ -132,14 +132,11 @@ The script requires Python 3.8+ with no additional dependencies.
 ### Usage
 
 ```bash
-# Release agent-sandbox 0.0.1
-python3 zhijun-io-release.py agent-sandbox 0.0.1
+# Release rose 0.1.0
+python3 zhijun-io-release.py rose 0.1.0
 
 # Dry run (preview without making changes)
-python3 zhijun-io-release.py agent-sandbox 0.0.1 --dry-run
-
-# Release with specific GitHub org
-python3 zhijun-io-release.py agent-judge 0.0.1 --org zhijun-io
+python3 zhijun-io-release.py rose 0.1.0 --dry-run
 ```
 
 ### What the Script Does
@@ -188,7 +185,7 @@ The `community-projects.yml` file lists all participating projects with their de
 1. Add workflow files that call the reusable workflows:
 
 ```yaml
-# .github/workflows/ci.yml
+# .github/workflows/maven-ci.yml
 name: CI Build
 on:
   push:
@@ -198,7 +195,7 @@ on:
 
 jobs:
   build:
-    uses: zhijun-io/workflows/.github/workflows/ci.yml@main
+    uses: zhijun-io/workflows/.github/workflows/maven-ci.yml@main
 ```
 
 2. Ensure your repository has the required secrets configured
