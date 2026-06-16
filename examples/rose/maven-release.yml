@@ -1,0 +1,28 @@
+# Release workflow for Rose (${revision} + flatten)
+# Place at .github/workflows/maven-release.yml in zhijun-io/rose
+
+name: Maven Central Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: zhijun-io/workflows/.github/workflows/maven-release.yml@main
+    with:
+      version: ${{ inputs.version }}
+      java-version: '8'
+      use-maven-wrapper: false
+      maven-profiles: release
+    secrets:
+      MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+      MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
