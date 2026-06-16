@@ -1,6 +1,6 @@
 # ZhiJun IO Workflows
 
-Shared infrastructure for ZhiJun IO Maven projects: reusable GitHub Actions workflows, release script, and configuration templates.
+Shared infrastructure for ZhiJun IO Maven projects: reusable GitHub Actions workflows and release script.
 
 ## Repository Structure
 
@@ -14,8 +14,6 @@ workflows/
 │   ├── actions/
 │   │   ├── run-maven/                  # mvn / mvnw + profiles, GPG
 │   │   └── set-project-version/        # versions:set or <revision> (auto)
-│   ├── community-projects.yml
-│   └── project.yml.template
 ├── examples/rose/                      # Rose integration samples
 └── zhijun-io-release.py
 ```
