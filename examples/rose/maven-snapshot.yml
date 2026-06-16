@@ -10,10 +10,7 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/*.md'
-      - '.github/*.yml'
-      - '.github/*.yaml'
+      - '.github/**'
 
 concurrency:
   group: maven-snapshot-${{ github.ref }}
